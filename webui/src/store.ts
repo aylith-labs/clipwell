@@ -2,7 +2,7 @@ import { createMemo, createRoot, createSignal } from "solid-js";
 import * as api from "./lib/client";
 import { dateBucket, sourceBucket } from "./lib/format";
 import { paste as platformPaste, setHotkey as platformSetHotkey } from "./lib/platform";
-import type { ClipboardSettings, ClipItem, GroupMode, Tab, ViewMode } from "./types";
+import type { ClipboardSettings, ClipItem, Counts, GroupMode, Tab, ViewMode } from "./types";
 
 const PAGE = 100;
 
@@ -10,6 +10,8 @@ export interface Row {
   item: ClipItem;
   header?: string;
 }
+
+export type ConnState = "connected" | "down" | "retrying";
 
 const DEFAULT_SETTINGS: ClipboardSettings = {
   retentionDays: 30,
@@ -19,8 +21,19 @@ const DEFAULT_SETTINGS: ClipboardSettings = {
   defaultGroup: "none",
   showSource: true,
   showTime: true,
+  showChars: true,
   hotkey: "Alt+Shift+V",
 };
+
+/**
+ * Windows captures store the raw CF_HTML payload, whose descriptor header
+ * ("Version:… StartHTML:…") must not reach a text/html clipboard entry.
+ */
+function htmlPayload(raw: string): string | null {
+  if (!/^Version:\d/.test(raw)) return raw;
+  const start = raw.indexOf("<html");
+  return start >= 0 ? raw.slice(start) : null;
+}
 
 function applyTheme(theme: ClipboardSettings["theme"]) {
   const dark =
@@ -31,17 +44,20 @@ function applyTheme(theme: ClipboardSettings["theme"]) {
 
 function makeStore() {
   const [items, setItems] = createSignal<ClipItem[]>([]);
-  const [search, setSearch] = createSignal("");
+  const [search, setSearchRaw] = createSignal("");
   const [tab, setTab] = createSignal<Tab>("all");
   const [kind, setKind] = createSignal("all");
   const [group, setGroup] = createSignal<GroupMode>("none");
   const [view, setView] = createSignal<ViewMode>("compact");
   const [selectedTs, setSelectedTs] = createSignal<string | null>(null);
   const [settings, setSettings] = createSignal<ClipboardSettings>(DEFAULT_SETTINGS);
-  const [error, setError] = createSignal<string | null>("Connecting to daemon…");
+  const [loaded, setLoaded] = createSignal(false);
+  const [conn, setConn] = createSignal<ConnState>("connected");
+  const [counts, setCounts] = createSignal<Counts | null>(null);
   const [quickLook, setQuickLook] = createSignal(false);
   const [actionsOpen, setActionsOpen] = createSignal(false);
   const [renameTs, setRenameTs] = createSignal<string | null>(null);
+  const [editTs, setEditTs] = createSignal<string | null>(null);
 
   let oldest: string | null = null;
   let allLoaded = false;
@@ -90,13 +106,32 @@ function makeStore() {
   const selected = createMemo(() => items().find((i) => i.timestamp === selectedTs()) ?? null);
 
   // Derived so it tracks the filtered view live (search/filter/group), not just reloads.
-  const status = createMemo(
-    () =>
-      error() ??
-      (items().length === 0
+  const status = createMemo(() =>
+    !loaded()
+      ? "Connecting to daemon…"
+      : items().length === 0
         ? "No clipboard history yet"
-        : `${rows().length} of ${items().length} items`),
+        : `${rows().length} of ${items().length} items`,
   );
+
+  // Counts are decoration: fetched alongside every reload, failure-isolated so a
+  // daemon without the endpoint just hides them.
+  async function refreshCounts() {
+    try {
+      setCounts(await api.getCounts(search()));
+    } catch {
+      /* keep the last values */
+    }
+  }
+
+  // Search keystrokes refilter instantly but only ping the counts endpoint after
+  // a 200 ms pause (counts respect the active search, like the pills' semantics).
+  let countsDebounce: ReturnType<typeof setTimeout> | undefined;
+  function setSearch(value: string) {
+    setSearchRaw(value);
+    clearTimeout(countsDebounce);
+    countsDebounce = setTimeout(() => void refreshCounts(), 200);
+  }
 
   async function reload() {
     try {
@@ -107,11 +142,24 @@ function makeStore() {
       if (!selectedTs() || !page.some((i) => i.timestamp === selectedTs())) {
         setSelectedTs(rows()[0]?.item.timestamp ?? null);
       }
-      setError(null);
+      setLoaded(true);
+      setConn("connected");
+      void refreshCounts();
     } catch {
-      setError("Daemon unreachable — is it running?");
+      setConn("down");
     }
   }
+
+  /** Manual retry from the error banner (also used by the auto-retry timer). */
+  async function retry() {
+    setConn("retrying");
+    await reload();
+  }
+
+  // Fallback poll while disconnected; the WS reconnect (2 s) usually wins.
+  setInterval(() => {
+    if (conn() === "down") void retry();
+  }, 5000);
 
   async function loadMore() {
     if (loadingMore || allLoaded || !oldest) return;
@@ -147,7 +195,12 @@ function makeStore() {
       .matchMedia("(prefers-color-scheme: dark)")
       .addEventListener("change", () => applyTheme(settings().theme));
     await reload();
-    api.listen(() => void reload());
+    // Resync on every WS (re)connect too — after a daemon restart this pulls
+    // fresh history and clears the unreachable banner.
+    api.listen(
+      () => void reload(),
+      () => void reload(),
+    );
   }
 
   const select = (ts: string) => setSelectedTs(ts);
@@ -189,14 +242,46 @@ function makeStore() {
     if (selected()) setRenameTs(selected()!.timestamp);
   }
 
-  /** Copy the selected item's text and (in Tauri) paste it into the source app. */
-  async function chooseSelected() {
-    const i = selected();
-    if (!i?.textContent) return;
+  /** Open the edit modal for text-bearing, non-sensitive items. */
+  function beginEdit() {
+    const item = selected();
+    if (item?.textContent && !item.isSensitive) setEditTs(item.timestamp);
+  }
+  async function commitEdit(text: string) {
+    const ts = editTs();
+    setEditTs(null);
+    if (!ts) return;
+    // Empty text clears the override, restoring the original capture.
+    await api.editItem(ts, text);
+    await reload();
+  }
+
+  /**
+   * Copy the selected item's text and (in Tauri) paste it into the source app.
+   * The default path restores captured HTML alongside the text so rich-text
+   * targets keep formatting; `plain` (Alt+Shift+Enter) writes text only.
+   */
+  async function chooseSelected(plain = false) {
+    const item = selected();
+    if (!item?.textContent) return;
+    const html = !plain && item.htmlContent ? htmlPayload(item.htmlContent) : null;
     try {
-      await navigator.clipboard.writeText(i.textContent);
+      if (html) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([item.textContent], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(item.textContent);
+      }
     } catch {
-      /* clipboard not available in this context */
+      try {
+        await navigator.clipboard.writeText(item.textContent);
+      } catch {
+        /* clipboard not available in this context */
+      }
     }
     await platformPaste();
   }
@@ -232,15 +317,20 @@ function makeStore() {
     settings,
     setSettings,
     status,
+    conn,
+    counts,
     quickLook,
     setQuickLook,
     actionsOpen,
     setActionsOpen,
     renameTs,
     setRenameTs,
+    editTs,
+    setEditTs,
     // ops
     init,
     reload,
+    retry,
     loadMore,
     select,
     moveSelection,
@@ -249,6 +339,8 @@ function makeStore() {
     del,
     beginRename,
     commitRename,
+    beginEdit,
+    commitEdit,
     chooseSelected,
     saveSettings,
     clearAllHistory,

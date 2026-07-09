@@ -1,4 +1,4 @@
-import type { ClipboardSettings, ClipItem, HealthInfo } from "../types";
+import type { ClipboardSettings, ClipItem, Counts, HealthInfo } from "../types";
 
 /**
  * Thin client for the Clipwell daemon's public API — the same REST + WebSocket
@@ -74,15 +74,32 @@ export function renameItem(timestamp: string, alias: string | null): Promise<voi
   return postJson("/api/clipboard/rename", { timestamp, alias });
 }
 
+/** Override an item's text (empty/null restores the original capture). */
+export async function editItem(timestamp: string, text: string | null): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/clipboard/edit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ timestamp, text }),
+  });
+  if (!res.ok) throw new Error(`edit failed → ${res.status}`);
+}
+
+/** Aggregate counts, scoped to the active search when one is given. */
+export function getCounts(query?: string): Promise<Counts> {
+  const q = query?.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
+  return getJson<Counts>(`/api/clipboard/counts${q}`);
+}
+
 export function imageUrl(timestamp: string): string {
   return `${API_BASE}/api/clipboard/image/${encodeURIComponent(timestamp)}`;
 }
 
 /**
  * Connect to the daemon WebSocket and call onChange on every clipboard change,
- * reconnecting with backoff. Returns a disposer.
+ * reconnecting with backoff. onOpen fires on every (re)connect so callers can
+ * resync after a daemon restart. Returns a disposer.
  */
-export function listen(onChange: () => void): () => void {
+export function listen(onChange: () => void, onOpen?: () => void): () => void {
   let socket: WebSocket | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let closed = false;
@@ -91,6 +108,7 @@ export function listen(onChange: () => void): () => void {
   const connect = () => {
     if (closed) return;
     socket = new WebSocket(wsUrl);
+    socket.onopen = () => onOpen?.();
     socket.onmessage = () => onChange();
     socket.onclose = () => {
       if (!closed) timer = setTimeout(connect, 2000);

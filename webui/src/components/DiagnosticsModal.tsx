@@ -37,7 +37,7 @@ export function DiagnosticsModal(props: { itemCount: number; onClose: () => void
         <div class="mt-6 flex justify-end">
           <button
             type="button"
-            class="rounded-md bg-violet-600 px-4 py-2 text-white hover:bg-violet-500"
+            class="rounded-md bg-accent px-4 py-2 font-medium text-white transition-colors hover:bg-accent/90"
             onClick={props.onClose}
           >
             Close

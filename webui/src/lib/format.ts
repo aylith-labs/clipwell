@@ -1,26 +1,15 @@
 import type { ClipItem } from "../types";
 
-export function kindGlyph(kind: string | null): string {
-  switch (kind) {
-    case "github-pr":
-      return "🔀";
-    case "jira-issue":
-      return "🎫";
-    case "url":
-      return "🔗";
-    case "email":
-      return "✉";
-    case "color":
-      return "🎨";
-    case "path":
-      return "📁";
-    case "code":
-      return "{ }";
-    case "image":
-      return "🖼";
-    default:
-      return "📄";
-  }
+/** Code-like kinds render their preview in the mono stack (matches the Avalonia picker). */
+export function isMonoPreview(item: ClipItem): boolean {
+  return item.kind === "code" || item.kind === "color" || item.kind === "path";
+}
+
+/** A parseable CSS color for color items, used for the inline swatch. */
+export function colorSwatch(item: ClipItem): string | null {
+  if (item.kind !== "color" || item.isSensitive) return null;
+  const value = (item.textContent ?? "").trim();
+  return CSS.supports("color", value) ? value : null;
 }
 
 function relativeTime(timestamp: string): string {
@@ -37,10 +26,20 @@ function relativeTime(timestamp: string): string {
   return new Date(t).toISOString().slice(0, 10);
 }
 
-export function meta(item: ClipItem, showSource: boolean, showTime: boolean): string {
+export interface MetaOptions {
+  showSource: boolean;
+  showTime: boolean;
+  showChars: boolean;
+}
+
+export function meta(item: ClipItem, opts: MetaOptions): string {
   const parts: string[] = [];
-  if (showSource && item.sourceApp) parts.push(item.sourceApp);
-  if (showTime) parts.push(relativeTime(item.timestamp));
+  if (opts.showSource && item.sourceApp) parts.push(item.sourceApp);
+  if (opts.showTime) parts.push(relativeTime(item.timestamp));
+  if (opts.showChars && item.textLength > 0 && !item.hasImage && !item.isSensitive)
+    parts.push(item.textLength === 1 ? "1 char" : `${item.textLength.toLocaleString()} chars`);
+  if (item.imageWidth != null && item.imageHeight != null)
+    parts.push(`${item.imageWidth}×${item.imageHeight}`);
   return parts.join(" · ");
 }
 
@@ -49,7 +48,7 @@ export function preview(item: ClipItem): string {
   if (item.isSensitive) return "•••••••••••  (sensitive)";
   if (item.alias) return item.alias;
   const text = item.textContent ?? "";
-  if (!text) return item.hasImage ? "🖼  image" : "(empty)";
+  if (!text) return item.hasImage ? "image" : "(empty)";
   const oneLine = text.replace(/\s+/g, " ").trim();
   return oneLine.length > 200 ? `${oneLine.slice(0, 200)}…` : oneLine;
 }

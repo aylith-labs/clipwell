@@ -9,7 +9,8 @@ function tauri(): TauriInternals | undefined {
   return (window as unknown as { __TAURI_INTERNALS__?: TauriInternals }).__TAURI_INTERNALS__;
 }
 
-function isTauri(): boolean {
+/** True inside the Tauri desktop shell (used for the transparent card chrome). */
+export function isTauri(): boolean {
   return tauri()?.invoke !== undefined;
 }
 

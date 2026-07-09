@@ -9,12 +9,22 @@ export interface ClipItem {
   textLength: number;
   htmlContent: string | null;
   hasImage: boolean;
+  imageWidth: number | null;
+  imageHeight: number | null;
   isPinned: boolean;
   isUserPinned: boolean;
   isSensitive: boolean;
   sourceApp: string;
   alias: string | null;
   isEdited: boolean;
+}
+
+/** Mirrors protocol/ClipCounts.cs — aggregate counts for pills and the kind dropdown. */
+export interface Counts {
+  total: number;
+  pinned: number;
+  sensitive: number;
+  kinds: Record<string, number>;
 }
 
 export interface ClipboardSettings {
@@ -25,6 +35,7 @@ export interface ClipboardSettings {
   defaultGroup: "none" | "date" | "source";
   showSource: boolean;
   showTime: boolean;
+  showChars: boolean;
   hotkey: string;
 }
 

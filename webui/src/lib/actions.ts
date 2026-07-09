@@ -1,3 +1,4 @@
+import { store } from "../store";
 import type { ClipItem } from "../types";
 import { openExternal } from "./platform";
 
@@ -48,6 +49,18 @@ const ACTIONS: ClipAction[] = [
         /* not a url */
       }
     },
+  },
+  {
+    id: "paste-plain",
+    label: "Paste as plain text",
+    appliesTo: (i) => !!i.textContent,
+    execute: () => store.chooseSelected(true),
+  },
+  {
+    id: "edit",
+    label: "Edit content…",
+    appliesTo: (i) => !!i.textContent && !i.isSensitive,
+    execute: async () => store.beginEdit(),
   },
 ];
 

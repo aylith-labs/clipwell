@@ -3,6 +3,13 @@
 /* Manual dark mode via a `.dark` class on <html> (toggled from settings/system). */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Product accent: the Clipwell violet (gradient #7c3aed → #a78bfa). The Avalonia
+   picker uses the same pair, so both front-ends share one look. */
+@theme {
+  --color-accent: #7c3aed;
+  --color-accent-soft: #a78bfa;
+}
+
 :root {
   color-scheme: light dark;
 }
@@ -19,7 +26,41 @@ body {
   @apply bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100;
 }
 
+/* Every focusable control gets the same accent ring. */
+@layer base {
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent/60 ring-offset-1 ring-offset-zinc-100 dark:ring-accent-soft/60 dark:ring-offset-zinc-950;
+  }
+  ::selection {
+    @apply bg-accent/25 dark:bg-accent-soft/30;
+  }
+}
+
 /* Thin, theme-aware scrollbars. */
 * {
   scrollbar-width: thin;
+}
+
+/* Motion is an enhancement, never required. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation: none !important;
+  }
+}
+
+/* Tauri shell: transparent window; the app renders as a rounded card with its
+   own shadow inside a small transparent gutter (class set in index.tsx). In a
+   plain browser `.app-card` is inert and the page fills the viewport. */
+html.tauri,
+html.tauri body {
+  background: transparent;
+}
+html.tauri #root {
+  padding: 10px;
+}
+html.tauri .app-card {
+  @apply overflow-hidden rounded-2xl border border-zinc-200/80 bg-zinc-100 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950;
 }

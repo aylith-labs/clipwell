@@ -9,7 +9,7 @@ const RETENTIONS: { label: string; value: number | null }[] = [
 ];
 
 const field =
-  "rounded-md border border-zinc-300 bg-transparent px-3 py-2 outline-none focus:border-violet-500 dark:border-zinc-700";
+  "rounded-md border border-zinc-300 bg-transparent px-3 py-2 outline-none transition-colors focus:border-accent dark:border-zinc-700 dark:focus:border-accent-soft";
 
 export function SettingsModal(props: {
   settings: ClipboardSettings;
@@ -86,6 +86,14 @@ export function SettingsModal(props: {
             />
             <span>Show time</span>
           </label>
+          <label class="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={draft.showChars}
+              onChange={(e) => setDraft("showChars", e.currentTarget.checked)}
+            />
+            <span>Show character count</span>
+          </label>
           <label class="flex flex-col gap-1">
             <span class="font-medium">History retention</span>
             <select
@@ -122,14 +130,14 @@ export function SettingsModal(props: {
         <div class="mt-6 flex justify-end gap-2">
           <button
             type="button"
-            class="rounded-md px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            class="rounded-md px-4 py-2 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
             onClick={props.onClose}
           >
             Close
           </button>
           <button
             type="button"
-            class="rounded-md bg-violet-600 px-4 py-2 text-white hover:bg-violet-500"
+            class="rounded-md bg-accent px-4 py-2 font-medium text-white transition-colors hover:bg-accent/90"
             onClick={() => props.onSave({ ...draft })}
           >
             Save

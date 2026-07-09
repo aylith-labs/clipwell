@@ -1,19 +1,23 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { Dynamic } from "solid-js/web";
 import { ActionPalette } from "./components/ActionPalette";
 import { ClipRow } from "./components/ClipRow";
 import { DiagnosticsModal } from "./components/DiagnosticsModal";
+import { EditModal } from "./components/EditModal";
+import { ErrorBanner } from "./components/ErrorBanner";
+import { FilterBar } from "./components/FilterBar";
+import { Footer } from "./components/Footer";
 import { QuickLook } from "./components/QuickLook";
 import { SettingsModal } from "./components/SettingsModal";
 import { imageUrl } from "./lib/client";
-import { fullText, meta } from "./lib/format";
+import { fullText, type MetaOptions, meta } from "./lib/format";
+import { kindIcon, Search } from "./lib/icons";
 import { hide as platformHide } from "./lib/platform";
 import { store } from "./store";
-import { KIND_OPTIONS } from "./types";
 
 export function App() {
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const [diagOpen, setDiagOpen] = createSignal(false);
-  const [menuOpen, setMenuOpen] = createSignal(false);
   const [renameDraft, setRenameDraft] = createSignal("");
 
   let searchEl: HTMLInputElement | undefined;
@@ -22,7 +26,14 @@ export function App() {
     diagOpen() ||
     store.actionsOpen() ||
     store.quickLook() ||
-    store.renameTs() !== null;
+    store.renameTs() !== null ||
+    store.editTs() !== null;
+
+  const metaOpts = (): MetaOptions => ({
+    showSource: store.settings().showSource,
+    showTime: store.settings().showTime,
+    showChars: store.settings().showChars,
+  });
 
   onMount(() => {
     void store.init();
@@ -33,10 +44,10 @@ export function App() {
   function closeAll() {
     setSettingsOpen(false);
     setDiagOpen(false);
-    setMenuOpen(false);
     store.setActionsOpen(false);
     store.setQuickLook(false);
     store.setRenameTs(null);
+    store.setEditTs(null);
   }
 
   function openActions() {
@@ -57,8 +68,8 @@ export function App() {
       }
       return;
     }
-    // Action palette / rename own the keyboard while open.
-    if (store.actionsOpen() || store.renameTs() !== null || settingsOpen() || diagOpen()) return;
+    // Overlays own the keyboard while open.
+    if (overlayOpen()) return;
 
     const ctrl = e.ctrlKey || e.metaKey;
     if (e.key === "ArrowDown") {
@@ -67,6 +78,9 @@ export function App() {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       store.moveSelection(-1);
+    } else if (e.key === "Enter" && e.altKey && e.shiftKey) {
+      e.preventDefault();
+      void store.chooseSelected(true);
     } else if (e.key === "Enter") {
       e.preventDefault();
       void store.chooseSelected();
@@ -75,9 +89,13 @@ export function App() {
     } else if (ctrl && e.key.toLowerCase() === "p") {
       e.preventDefault();
       void store.togglePin();
-    } else if (ctrl && e.key.toLowerCase() === "e") {
+    } else if (ctrl && e.shiftKey && e.key.toLowerCase() === "l") {
+      // Old-app chords: Ctrl+E edits, Ctrl+Shift+L toggles sensitive.
       e.preventDefault();
       void store.toggleSensitive();
+    } else if (ctrl && e.key.toLowerCase() === "e") {
+      e.preventDefault();
+      store.beginEdit();
     } else if (ctrl && e.key.toLowerCase() === "y") {
       e.preventDefault();
       if (store.selected()) store.setQuickLook(true);
@@ -101,121 +119,43 @@ export function App() {
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) void store.loadMore();
   }
 
-  const tabBtn = (active: boolean) =>
-    `rounded-md px-3 py-1 text-sm ${active ? "bg-violet-600 text-white" : "bg-zinc-200 dark:bg-zinc-800"}`;
-  const ctl =
-    "rounded-md border border-zinc-300 bg-transparent px-2 py-1 text-sm dark:border-zinc-700";
-
   return (
-    <div class="relative flex h-full flex-col gap-3 p-4">
+    <div class="app-card relative flex h-full flex-col gap-3 p-4">
       {/* Search */}
-      <input
-        ref={searchEl}
-        autofocus
-        value={store.search()}
-        onInput={(e) => store.setSearch(e.currentTarget.value)}
-        placeholder="Search clipboard history…"
-        class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base outline-none focus:border-violet-500 dark:border-zinc-700 dark:bg-zinc-900"
-      />
+      <div class="relative">
+        <Search
+          size={16}
+          strokeWidth={1.75}
+          class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-zinc-400 dark:text-zinc-500"
+        />
+        <input
+          ref={searchEl}
+          autofocus
+          value={store.search()}
+          onInput={(e) => store.setSearch(e.currentTarget.value)}
+          placeholder="Search clipboard history…"
+          class="w-full rounded-lg border border-zinc-300 bg-white py-2 pr-3 pl-9 text-base outline-none transition-colors focus:border-accent dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-accent-soft"
+        />
+      </div>
 
       {/* Filter bar */}
-      <div class="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          class={tabBtn(store.tab() === "all")}
-          onClick={() => store.setTab("all")}
-        >
-          All
-        </button>
-        <button
-          type="button"
-          class={tabBtn(store.tab() === "pinned")}
-          onClick={() => store.setTab("pinned")}
-          title="Pinned"
-        >
-          📌
-        </button>
-        <button
-          type="button"
-          class={tabBtn(store.tab() === "sensitive")}
-          onClick={() => store.setTab("sensitive")}
-          title="Sensitive"
-        >
-          🔒
-        </button>
-        <button
-          type="button"
-          class={ctl}
-          onClick={() => store.setView(store.view() === "detail" ? "compact" : "detail")}
-          title="Compact / Detail"
-        >
-          {store.view() === "detail" ? "▤" : "▦"}
-        </button>
-        <div class="flex-1" />
-        <select
-          class={ctl}
-          value={store.group()}
-          onChange={(e) => store.setGroup(e.currentTarget.value as "none" | "date" | "source")}
-        >
-          <option value="none">No grouping</option>
-          <option value="date">By date</option>
-          <option value="source">By source</option>
-        </select>
-        <select
-          class={ctl}
-          value={store.kind()}
-          onChange={(e) => store.setKind(e.currentTarget.value)}
-        >
-          <For each={KIND_OPTIONS}>{(k) => <option value={k.value}>{k.label}</option>}</For>
-        </select>
-        <div class="relative">
-          <button type="button" class={ctl} onClick={() => setMenuOpen(!menuOpen())}>
-            ⚙
-          </button>
-          <Show when={menuOpen()}>
-            <div class="absolute right-0 z-20 mt-1 w-40 rounded-md border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
-              <button
-                type="button"
-                class="block w-full px-3 py-1.5 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setSettingsOpen(true);
-                }}
-              >
-                Settings…
-              </button>
-              <button
-                type="button"
-                class="block w-full px-3 py-1.5 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setDiagOpen(true);
-                }}
-              >
-                Diagnostics…
-              </button>
-              <button
-                type="button"
-                class="block w-full px-3 py-1.5 text-left text-sm text-red-600 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                onClick={() => {
-                  setMenuOpen(false);
-                  if (confirm("Delete ALL clipboard history?")) void store.clearAllHistory();
-                }}
-              >
-                Clear history…
-              </button>
-            </div>
-          </Show>
-        </div>
-      </div>
+      <FilterBar
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenDiagnostics={() => setDiagOpen(true)}
+      />
+
+      {/* Daemon-unreachable banner */}
+      <Show when={store.conn() !== "connected"}>
+        <ErrorBanner conn={store.conn()} onRetry={() => void store.retry()} />
+      </Show>
 
       {/* List + optional detail pane */}
       <div class="flex min-h-0 flex-1 gap-3">
         <div class="relative min-w-0 flex-1">
           {/* Rename bar */}
           <Show when={store.renameTs()}>
-            <div class="absolute inset-x-0 top-0 z-10 flex items-center gap-2 rounded-lg border border-violet-500 bg-white p-2 dark:bg-zinc-900">
-              <span class="text-sm opacity-70">Rename:</span>
+            <div class="absolute inset-x-0 top-0 z-10 flex items-center gap-2 rounded-lg border border-accent bg-white p-2 dark:border-accent-soft dark:bg-zinc-900">
+              <span class="text-sm text-zinc-500 dark:text-zinc-400">Rename:</span>
               <input
                 autofocus
                 class="flex-1 rounded-md border border-zinc-300 bg-transparent px-2 py-1 outline-none dark:border-zinc-700"
@@ -242,8 +182,8 @@ export function App() {
                 <ClipRow
                   row={row}
                   selected={row.item.timestamp === store.selectedTs()}
-                  showSource={store.settings().showSource}
-                  showTime={store.settings().showTime}
+                  metaOpts={metaOpts()}
+                  search={store.search()}
                   onSelect={() => store.select(row.item.timestamp)}
                   onChoose={() => void store.chooseSelected()}
                 />
@@ -259,9 +199,17 @@ export function App() {
               const showImage = item.hasImage && !item.isSensitive;
               return (
                 <>
-                  <div class="text-sm font-semibold">{item.kind ?? "text"}</div>
-                  <div class="mb-3 text-[11px] opacity-60">
-                    {meta(item, store.settings().showSource, store.settings().showTime)}
+                  <div class="flex items-center gap-2 text-sm font-semibold">
+                    <Dynamic
+                      component={kindIcon(item.kind)}
+                      size={14}
+                      strokeWidth={1.75}
+                      class="text-zinc-500 dark:text-zinc-400"
+                    />
+                    {item.kind ?? "text"}
+                  </div>
+                  <div class="mb-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {meta(item, metaOpts())}
                   </div>
                   <Show
                     when={showImage}
@@ -271,7 +219,7 @@ export function App() {
                       </pre>
                     }
                   >
-                    <img src={imageUrl(item.timestamp)} alt="" class="max-w-full" />
+                    <img src={imageUrl(item.timestamp)} alt="" class="max-w-full rounded" />
                   </Show>
                 </>
               );
@@ -280,20 +228,26 @@ export function App() {
         </Show>
       </div>
 
-      {/* Status */}
-      <div class="text-[11px] opacity-50">{store.status()}</div>
+      {/* Status + hints */}
+      <Footer status={store.status()} />
 
       {/* Overlays */}
       <Show when={store.quickLook() && store.selected()}>
         <QuickLook
           item={store.selected()!}
-          showSource={store.settings().showSource}
-          showTime={store.settings().showTime}
+          metaOpts={metaOpts()}
           onClose={() => store.setQuickLook(false)}
         />
       </Show>
       <Show when={store.actionsOpen() && store.selected()}>
         <ActionPalette item={store.selected()!} onClose={() => store.setActionsOpen(false)} />
+      </Show>
+      <Show when={store.editTs() && store.selected()}>
+        <EditModal
+          initial={store.selected()?.textContent ?? ""}
+          onSave={(text) => void store.commitEdit(text)}
+          onClose={() => store.setEditTs(null)}
+        />
       </Show>
       <Show when={settingsOpen()}>
         <SettingsModal
