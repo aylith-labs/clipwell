@@ -71,6 +71,11 @@ from the old `clipboard-store.ts` so existing history files keep working.
 - The retention sweep now runs an hour *after* startup (not on boot), so a
   short-lived dev run won't purge anything — but isolation via `CLIPWELL_DATA_DIR`
   is still the rule.
+- **Never start the daemon with a UNC working directory** (e.g. launched from a
+  WSL path via `\\wsl.localhost\…`): the host's config file-watchers hang before
+  the first log line and the process sits mute, never listening. Start it with a
+  Windows-local working directory (`Start-Process -WorkingDirectory`); the bench
+  scripts `Set-Location $env:TEMP` for this reason.
 - **Killing the daemon:** `dotnet run` launches a separate `Clipwell.Daemon.exe`
   apphost — it is NOT a `dotnet.exe` process. Kill it with
   `Stop-Process -Name Clipwell.Daemon -Force`, then confirm port 8787 is free,
