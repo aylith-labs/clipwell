@@ -9,4 +9,5 @@
  * Override with `NEXT_PUBLIC_MEDIA_BASE` if you ever fork the host.
  */
 export const MEDIA_BASE =
-  process.env.NEXT_PUBLIC_MEDIA_BASE ?? 'https://media.aylith.com/clipwell/media';
+  process.env.NEXT_PUBLIC_MEDIA_BASE ??
+  "https://media.aylith.com/clipwell/media";

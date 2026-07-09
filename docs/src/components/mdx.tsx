@@ -1,7 +1,7 @@
-import defaultMdxComponents from 'fumadocs-ui/mdx';
-import type { MDXComponents } from 'mdx/types';
-import { ThemedShot } from '@/components/themed-shot';
-import { ThemedClip } from '@/components/themed-clip';
+import defaultMdxComponents from "fumadocs-ui/mdx";
+import type { MDXComponents } from "mdx/types";
+import { ThemedClip } from "@/components/themed-clip";
+import { ThemedShot } from "@/components/themed-shot";
 
 export function getMDXComponents(components?: MDXComponents) {
   return {

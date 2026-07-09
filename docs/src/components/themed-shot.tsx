@@ -1,5 +1,5 @@
-import Image from 'next/image';
-import { MEDIA_BASE } from '@/lib/media';
+import Image from "next/image";
+import { MEDIA_BASE } from "@/lib/media";
 
 /**
  * A screenshot that swaps with the docs theme: the `-light` variant shows in
@@ -25,7 +25,7 @@ export function ThemedShot({
   height: number;
   caption?: string;
 }) {
-  const common = 'rounded-xl border border-fd-border shadow-lg w-full h-auto';
+  const common = "rounded-xl border border-fd-border shadow-lg w-full h-auto";
   return (
     <figure className="my-6">
       <Image
