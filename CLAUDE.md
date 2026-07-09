@@ -41,8 +41,14 @@ Default port **8787**, override with `CLIPWELL_URL`. CLI base URL override:
 ## API (Phase 1)
 - `GET  /health`
 - `GET  /api/clipboard?limit=&before=` → `{ items: ClipItem[] }`
+- `GET  /api/clipboard/counts?q=` → `{ total, pinned, sensitive, kinds }` — counts
+  respect the search query (pill semantics)
 - `GET|POST /api/clipboard/settings`
 - `POST /api/clipboard/delete` `{ timestamp }`, `POST /api/clipboard/clear`
+- `POST /api/clipboard/pin|sensitive|rename` `{ timestamp, … }`
+- `POST /api/clipboard/edit` `{ timestamp, text }` — non-destructive overlay in
+  `clipboard-meta.json` (empty text restores the original; edited text
+  re-classifies at read time; `HtmlContent` nulled while overridden)
 - `GET  /api/clipboard/image/{timestamp}` → PNG for image items
 - `GET  /api/clipboard/stream` (SSE), `GET /api/clipboard/ws` (WebSocket) — both
   emit `{ type:"clipboard.changed", timestamp, textLength }` on capture.

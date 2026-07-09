@@ -59,7 +59,8 @@ bun run tauri dev                # desktop app (needs Rust + platform webview to
 
 The daemon exposes the same history three ways:
 
-- **REST** — `GET /api/clipboard`, `/settings`, `/image/{ts}`, `POST /delete`, `/clear`.
+- **REST** — `GET /api/clipboard`, `/counts`, `/settings`, `/image/{ts}`,
+  `POST /delete`, `/clear`, `/pin`, `/sensitive`, `/rename`, `/edit`.
   Machine-readable spec at `GET /openapi/v1.json` (also checked in at
   [`openapi/clipwell.v1.json`](./openapi/clipwell.v1.json)).
 - **Live** — `GET /api/clipboard/stream` (SSE) and `/api/clipboard/ws` (WebSocket)

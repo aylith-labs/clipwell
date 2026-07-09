@@ -1,0 +1,55 @@
+---
+title: "ADR-0008: Design tokens and Lucide iconography for the pickers"
+description: Architecture Decision Record
+---
+
+- Status: accepted
+- Date: 2026-07-09
+- Deciders: project owner
+
+## Context
+
+Both pickers shipped functional but undesigned. The Avalonia picker was stock
+Fluent — system brushes, the OS accent, emoji as icons (📌 🔒 🔗), opacity-based
+hierarchy — and the webui was default-Tailwind zinc with a solid violet-fill
+selection that crushed contrast. Nothing tied the two front-ends together
+visually, and nothing signaled which filter was active.
+
+## Decision
+
+- **One shared palette for both pickers**: the Tailwind zinc neutral ramp plus a
+  single violet accent (`#7c3aed` light / `#a78bfa` dark), matching the product
+  gradient in the catalog manifest. No org-brand adoption (the Aylith copper
+  system stays on aylith.com surfaces).
+- **Selection is an accent-tinted surface** (~10–15% alpha) with a small accent
+  edge — never a solid accent fill with inverted text.
+- **Avalonia gets a token layer, not a retemplate.** `Styles/Tokens.axaml`
+  defines `Clip*` brushes in Light/Dark theme dictionaries and overrides the
+  `SystemAccentColor` family so stock Fluent controls (focus, carets, ComboBox
+  highlights) recolor for free; `Styles/Controls.axaml` adds class-based styles
+  (`pill`, `accent`, `groupHeader`, `meta`, `lucide`). Retemplating Fluent
+  controls was rejected: it costs perf and breaks across Avalonia upgrades.
+- **Icons are Lucide 1.23.0 in both pickers.** The webui deep-imports
+  `lucide-solid/icons/*` (only used icons bundle); the Avalonia picker carries
+  the same geometry converted to `StreamGeometry` path data in `ui/Icons.cs`
+  (one shared frozen instance per icon, zero per-row allocation). Lucide is
+  stroke-based, so Avalonia renders icons as stroked `Path` (class `lucide`,
+  1.75 thickness, round caps) — a filled `PathIcon` renders them wrong.
+  `webui/src/lib/icons.ts` and `ui/Icons.cs` are the paired parity surfaces.
+- **Search matches highlight in amber** (the old WPF app's convention), via a
+  custom `HighlightedTextBlock` in Avalonia (empty-query fast path assigns plain
+  `Text`, keeping the warm-show path allocation-free) and an indexOf-split
+  `<Highlighted>` component in Solid.
+
+## Consequences
+
+- The pickers read as one product: same accent, same icons, same row anatomy
+  (kind icon · preview · meta line · pin), same highlight color.
+- Kind icons re-map in exactly two files; the icon set is pinned to lucide
+  1.23.0 in both, so a future icon refresh is a deliberate, versioned change.
+- The warm show-cycle is untouched: tokens are resolved brushes, icon geometry
+  is static, and the highlight control's reset path allocates nothing
+  (verified against `bench/baseline.json` after the restyle).
+- Trade-off: the Avalonia icon set is transcribed (generated from the lucide
+  SVGs by script), so adding an icon there is a small manual step rather than
+  an import.

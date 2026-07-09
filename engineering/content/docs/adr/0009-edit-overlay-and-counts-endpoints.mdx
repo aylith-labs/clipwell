@@ -1,0 +1,54 @@
+---
+title: "ADR-0009: Edit-overlay and counts endpoints"
+description: Architecture Decision Record
+---
+
+- Status: accepted
+- Date: 2026-07-09
+- Deciders: project owner
+
+## Context
+
+Porting the old app's remaining headline features (edit content, live filter
+counts) needed daemon support. Editing an item's text naively — mutating the
+SQLite row — would break the `UNIQUE(timestamp, text_sha1)` dedup key, lose the
+original capture, and require a schema migration for existing `history.db`
+files. Counts computed client-side over loaded pages (the old app's approach)
+lie once infinite scroll has only loaded the first page.
+
+## Decision
+
+- **Edits are a metadata overlay, not a row mutation.** `MetadataStore` (the
+  `clipboard-meta.json` port that already holds pins/sensitive/aliases) gains an
+  `Edits` map. `POST /api/clipboard/edit { timestamp, text }` sets it; empty
+  text clears it, restoring the original — the same semantics the old backend
+  had. At read time the overlay replaces `TextContent`, recomputes `TextLength`,
+  sets `IsEdited`, and **nulls `HtmlContent`** so a stale rich capture can't
+  shadow the edit on paste.
+- **Edited text re-classifies for free**: kinds are detected at read time, after
+  the overlay applies — edit a note into a URL and its kind flips to `url`.
+- **`GET /api/clipboard/counts?q=`** returns `{ total, pinned, sensitive,
+  kinds }` in a single store pass. Counts respect the active search (a pill
+  answers "what do I see if I click this"), using the same case-insensitive
+  text-or-alias match as the pickers' filter. Folding counts into the paged
+  list response was rejected — pages re-fetch on every scroll step, and a
+  separate endpoint lets clients debounce count refreshes independently.
+- **Image dimensions ship on `ClipItem`** (`ImageWidth`/`ImageHeight`), parsed
+  from the cached PNG's IHDR bytes at read time and memoized per path — both
+  pickers get "W×H" meta without decoding images client-side.
+- **Source-app icons: considered, deferred.** The daemon stores only the
+  friendly source name; the exe path (needed for shell-icon extraction) is
+  discarded at capture and the Unix watchers have no source at all. The forward
+  path is a `source_app_path` column plus Windows-only icon extraction; until
+  then the source name stays in the meta line.
+
+## Consequences
+
+- Zero migration: existing `history.db` files keep working; deleting an item
+  (`Forget`) drops its edit with the rest of its metadata.
+- Edits survive retention decisions independently of content and are always
+  revertible; the original text and dedup hash are never touched.
+- The counts pass classifies every row on each call. Retention-capped stores
+  are a few thousand rows, and clients debounce search-driven refetches
+  (~200 ms), so this stays well inside the REST latency budget; memoizing kind
+  by `text_sha1` is the escape hatch if it ever isn't.

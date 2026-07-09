@@ -10,8 +10,8 @@ very long history stays fast (the list is virtualized).
 <ThemedShot
   name="picker"
   alt="The Clipwell picker showing a search box, filter tabs, and a list of typed clipboard items"
-  width={862}
-  height={1016}
+  width={718}
+  height={847}
   caption="The picker: search, filter tabs, and typed history — shown here in your current theme."
 />
 
@@ -36,38 +36,51 @@ very long history stays fast (the list is virtualized).
 
 ## Recognize items at a glance
 
-Every item is classified and shown with a glyph:
+Every item is classified and shown with its kind's icon (Lucide, shared by the
+native picker and the web UI):
 
-| Glyph | Kind  | Example |
-|-------|-------|---------|
-| 🔗    | url   | `https://avaloniaui.net` |
-| 🔀    | github-pr | `https://github.com/org/repo/pull/123` |
-| 🎫    | jira-issue | `PROJ-1234` |
-| ✉     | email | `you@example.com` |
-| 🎨    | color | `#3366ff` |
-| 📁    | path  | `C:\Users\you\file.txt` |
-| `{ }` | code  | `const sum = (a, b) => a + b;` |
-| 🖼     | image | a screenshot |
-| 📄    | text  | anything else |
+| Icon | Kind  | Example |
+|------|-------|---------|
+| link | url   | `https://avaloniaui.net` |
+| git-pull-request | github-pr | `https://github.com/org/repo/pull/123` |
+| ticket | jira-issue | `PROJ-1234` |
+| mail | email | `you@example.com` |
+| palette | color | `#3366ff` |
+| folder | path  | `C:\Users\you\file.txt` |
+| code | code  | `const sum = (a, b) => a + b;` |
+| image | image | a screenshot |
+| file-text | text  | anything else |
 
 Classification is done by pluggable detectors, so the set of kinds can be extended.
 **Image items show a thumbnail**, and **URLs show the site's favicon** (fetched
-directly over HTTPS — no third‑party favicon service) in place of the glyph.
-Each item also shows **which app it was copied from** ("Tabby · just now"),
-captured at copy time.
+directly over HTTPS — no third‑party favicon service) in place of the icon.
+**Color items show an actual swatch** of the color beside the value, and code,
+color, and path items render their preview in a monospace face.
+
+The metadata line under each preview shows **which app it was copied from**, the
+relative time, the **character count** for text items, the **pixel dimensions**
+for images, and an **edited** tag when the text has been overridden
+("VS Code · just now · 312 chars").
+
+## Search with highlighting
+
+Typing in the search box filters the list live and **marks every match** in the
+previews (amber), so you can see *why* an item matched — in the text or in its
+alias. The filter pills and the type dropdown show **live counts** that follow
+the search: "Pinned 3" always answers "what do I see if I click this".
 
 ## Compact and Detail views
 
 Toggle between **Compact** (a dense single‑column list) and **Detail** (list on the
-left, a full preview pane on the right) with the **▦ Detail / ▤ Compact** button.
-The preview pane shows the selected item's kind, source, and full content — the
-complete text, or a full‑resolution image.
+left, a full preview pane on the right) with the view button next to the filter
+pills. The preview pane shows the selected item's kind, source, and full
+content — the complete text, or a full‑resolution image.
 
 <ThemedShot
   name="detail"
   alt="Clipwell in Detail view: the history list on the left and a preview pane on the right showing the selected item's full content"
-  width={1372}
-  height={1016}
+  width={1143}
+  height={847}
   caption="Detail view — list plus a live preview pane."
 />
 
@@ -81,8 +94,8 @@ complete text (scrollable) or a full‑resolution image. Press **Ctrl+Y** again,
 <ThemedShot
   name="quicklook"
   alt="Quick Look overlay showing the selected item's full content over a dimmed picker"
-  width={862}
-  height={1016}
+  width={718}
+  height={847}
   caption="Quick Look (Ctrl+Y) — a fast full preview without leaving the list."
 />
 
@@ -97,46 +110,73 @@ actions through the same contract (see the engineering docs).
 <ThemedShot
   name="actions"
   alt="The Ctrl+K action palette over a selected link, listing Open in browser, Copy to clipboard, and Copy domain"
-  width={862}
-  height={1016}
+  width={718}
+  height={847}
   caption="The Ctrl+K action palette — content-aware actions for the selected item."
 />
 
 ## Filter to what you need
 
-The tabs below the search box narrow the list instantly:
+The pills below the search box narrow the list instantly, each with a live count:
 
 - **All** — everything, newest first (pinned items float to the top).
-- **📌 Pinned** — only items you've pinned for reuse.
-- **🔒 Sensitive** — only items you've flagged as sensitive.
+- **Pinned** (pin icon) — only items you've pinned for reuse.
+- **Sensitive** (lock icon) — only items you've flagged as sensitive.
 
-The **type dropdown** filters by detected kind, and the **grouping dropdown** can
-group the list **by date** (Today / Yesterday / Previous 7 days / …) or **by source
-app**, with a header above each group.
+The **type dropdown** filters by detected kind (with per‑kind counts), and the
+**grouping dropdown** can group the list **by date** (Today / Yesterday /
+Previous 7 days / …) or **by source app**, with a header above each group.
 
 <ThemedShot
   name="grouped"
   alt="The picker grouped by source app, with a header above each app's items"
-  width={862}
-  height={1016}
+  width={718}
+  height={847}
   caption="Grouped by source app — also available by date."
 />
 
-Keyboard shortcuts work on the selected item: **Ctrl+1 / Ctrl+2 / Ctrl+3** switch
-tabs, **Delete** removes an item, **Ctrl+P** toggles pin, **Ctrl+E** toggles the
-sensitive flag, **F2** renames (alias), and **Ctrl+Y** opens Quick Look.
+Keyboard shortcuts work on the selected item:
+
+| Chord | Action |
+|-------|--------|
+| **Enter** | Paste (keeps rich formatting where captured, Windows) |
+| **Alt+Shift+Enter** | Paste as plain text |
+| **Ctrl+E** | Edit content |
+| **Ctrl+Shift+L** | Toggle the sensitive flag |
+| **Ctrl+P** | Toggle pin |
+| **F2** | Rename (alias) |
+| **Ctrl+Y** | Quick Look |
+| **Ctrl+K** | Action palette |
+| **Ctrl+1 / 2 / 3** | All / Pinned / Sensitive |
+| **Delete** | Remove the item |
+
+## Edit an item's text
+
+Press **Ctrl+E** to edit the selected item's content in place — fix a typo in a
+snippet, trim a URL, redact a line. The edit is a **non‑destructive override**:
+the original capture is kept, the row shows an **edited** tag, and saving empty
+text restores the original. Edited text is re‑classified, so editing a note into
+a URL flips its kind (and favicon) too. Save with **Ctrl+Enter**, cancel with
+**Escape**.
+
+## When the daemon is down
+
+If the picker can't reach the daemon it shows an **error banner with a Retry
+button** and keeps the last loaded history on screen instead of blanking. It
+also reconnects automatically — a restarted daemon clears the banner within a
+couple of seconds, no clicks needed.
 
 ## Pin snippets you reuse
 
 Pin the things you paste over and over — a sign‑off, a command, a code snippet.
-Select an item and press **Ctrl+P** (or use the **📌 Pinned** tab to manage them).
+Select an item and press **Ctrl+P** (or use the **Pinned** pill to manage them).
 Pinned items are sorted to the top of the list and survive history retention sweeps.
 
 ## Hide sensitive items
 
-Flag an item as **sensitive** (**Ctrl+E**) and its preview is masked in the list as
-`•••••••••••`, so a password or token doesn't sit in plain sight while you scroll.
-Sensitive image items don't render a thumbnail.
+Flag an item as **sensitive** (**Ctrl+Shift+L**) and its preview is masked in the
+list as `•••••••••••`, so a password or token doesn't sit in plain sight while you
+scroll. Sensitive image items don't render a thumbnail.
 
 ## Settings
 
@@ -145,7 +185,7 @@ Open **Settings…** from the tray menu to tune:
 - **Appearance** — System (default), Light, or Dark theme.
 - **Default view** — Compact or Detail.
 - **Default grouping** — None, by date, or by source.
-- **Row metadata** — show/hide the source app and time on each row.
+- **Row metadata** — show/hide the source app, time, and character count on each row.
 - **History retention** — 7 / 30 / 90 days, or **Forever**.
 - **Picker position** — open at the mouse cursor or centered.
 - **Global hotkey** — rebindable: click **Change…** and press a new combo (default
@@ -154,8 +194,8 @@ Open **Settings…** from the tray menu to tune:
 <ThemedShot
   name="settings"
   alt="The Clipwell settings window: appearance, default view, grouping, row metadata, retention, and picker position"
-  width={682}
-  height={1016}
+  width={568}
+  height={872}
   caption="Settings: appearance, view, grouping, metadata, retention, and position."
 />
 
@@ -169,8 +209,8 @@ Clear the log or refresh from the same window.
 <ThemedShot
   name="diagnostics"
   alt="The Clipwell diagnostics window showing daemon status and picker show-cycle timings"
-  width={802}
-  height={956}
+  width={668}
+  height={797}
   caption="Diagnostics — daemon health and real show-cycle latencies."
 />
 

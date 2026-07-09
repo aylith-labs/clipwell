@@ -15,10 +15,17 @@ curl http://127.0.0.1:8787/api/clipboard?limit=20
 # page back in time
 curl "http://127.0.0.1:8787/api/clipboard?limit=20&before=2026-06-14T00:00:00Z"
 
+# aggregate counts (total / pinned / sensitive / per kind), optionally search-scoped
+curl http://127.0.0.1:8787/api/clipboard/counts
+curl "http://127.0.0.1:8787/api/clipboard/counts?q=github"
+
 # settings, delete, clear
 curl http://127.0.0.1:8787/api/clipboard/settings
 curl -X POST http://127.0.0.1:8787/api/clipboard/delete -d '{"timestamp":"..."}'
 curl -X POST http://127.0.0.1:8787/api/clipboard/clear
+
+# non-destructive text override (empty text restores the original)
+curl -X POST http://127.0.0.1:8787/api/clipboard/edit -d '{"timestamp":"...","text":"edited"}'
 ```
 
 The full machine‑readable contract is published at `GET /openapi/v1.json` and

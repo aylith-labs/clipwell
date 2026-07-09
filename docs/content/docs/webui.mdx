@@ -11,8 +11,8 @@ WebSocket API — so it works on Windows, macOS, and Linux.
 <ThemedShot
   name="webui"
   alt="The Clipwell web UI as a Tauri desktop app: search, filter tabs, typed rows with favicons, image thumbnail, and source apps"
-  width={1162}
-  height={1003}
+  width={760}
+  height={660}
   caption="The web UI as a Tauri desktop app (shown in your current theme)."
 />
 
@@ -35,15 +35,22 @@ bun run tauri dev     # or: bun run tauri build
 
 ## What it does
 
-Feature parity with the native picker: search; typed rows with **kind glyphs,
-favicons, image thumbnails, and the source app**; **type filter** + pinned/sensitive
-tabs; **grouping** by date or source; **Compact and Detail** views; **Quick Look**
-(Ctrl+Y); a **Ctrl+K action palette**; pin / sensitive (masked) / delete / **rename**
-(F2); infinite scroll; **settings** (theme, default view/grouping, metadata, retention,
-hotkey) and **diagnostics**; live updates over WebSocket; light/dark with the OS default.
+Feature parity with the native picker: search with **live match highlighting**;
+typed rows with **kind icons (Lucide), favicons, image thumbnails, color
+swatches, and the source app**; a metadata line with time, **character count**,
+image **dimensions**, and an **edited** tag; **type filter** + pinned/sensitive
+pills, all with **live counts**; **grouping** by date or source; **Compact and
+Detail** views; **Quick Look** (Ctrl+Y); a **Ctrl+K action palette** (including
+**Edit content** and **Paste as plain text**); pin (Ctrl+P) / sensitive
+(Ctrl+Shift+L, masked) / **edit** (Ctrl+E) / delete / **rename** (F2); an
+**error banner with Retry** when the daemon is unreachable; infinite scroll;
+**settings** (theme, default view/grouping, metadata, retention, hotkey) and
+**diagnostics**; live updates over WebSocket; light/dark with the OS default.
 
 As a Tauri desktop app it adds the global hotkey (**Alt+Shift+V**), a tray icon,
-hide‑on‑blur, and pasting the chosen item back into the app you came from.
+hide‑on‑blur, a transparent rounded‑card window, and pasting the chosen item
+back into the app you came from — **Enter** keeps rich formatting where it was
+captured, **Alt+Shift+Enter** pastes plain text.
 
 ## Stack
 
