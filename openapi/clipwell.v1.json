@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://127.0.0.1:8787/"
+      "url": "http://127.0.0.1:8791/"
     }
   ],
   "paths": {
@@ -46,6 +46,29 @@
           },
           {
             "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/clipboard/counts": {
+      "get": {
+        "tags": [
+          "Clipwell.Daemon"
+        ],
+        "summary": "Aggregate counts (total, pinned, sensitive, per kind), optionally scoped to a search query `q`.",
+        "operationId": "GetCounts",
+        "parameters": [
+          {
+            "name": "q",
             "in": "query",
             "schema": {
               "type": "string"
@@ -205,6 +228,30 @@
         }
       }
     },
+    "/api/clipboard/edit": {
+      "post": {
+        "tags": [
+          "Clipwell.Daemon"
+        ],
+        "summary": "Override an item's text (non-destructive; empty text restores the original capture).",
+        "operationId": "EditItem",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/clipboard/image/{timestamp}": {
       "get": {
         "tags": [
@@ -243,6 +290,27 @@
               "string"
             ],
             "format": "int32"
+          },
+          "openAtCursor": {
+            "type": "boolean"
+          },
+          "theme": {
+            "type": "string"
+          },
+          "defaultView": {
+            "type": "string"
+          },
+          "defaultGroup": {
+            "type": "string"
+          },
+          "showSource": {
+            "type": "boolean"
+          },
+          "showTime": {
+            "type": "boolean"
+          },
+          "hotkey": {
+            "type": "string"
           }
         }
       },
@@ -254,6 +322,24 @@
         "properties": {
           "timestamp": {
             "type": "string"
+          }
+        }
+      },
+      "EditRequest": {
+        "required": [
+          "timestamp",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

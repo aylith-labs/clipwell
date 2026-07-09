@@ -4,9 +4,9 @@ namespace Clipwell.Daemon;
 
 /// <summary>
 /// User metadata that isn't part of the captured clipboard content — pins,
-/// sensitive flags, and aliases — keyed by an item's timestamp. Persisted as JSON
-/// next to the history DB so it survives restarts. Ported in spirit from the
-/// original backend's <c>clipboard-meta.json</c>.
+/// sensitive flags, aliases, and text edits — keyed by an item's timestamp.
+/// Persisted as JSON next to the history DB so it survives restarts. Ported in
+/// spirit from the original backend's <c>clipboard-meta.json</c>.
 /// </summary>
 public sealed class MetadataStore
 {
@@ -15,6 +15,7 @@ public sealed class MetadataStore
         public HashSet<string> Pinned { get; set; } = [];
         public HashSet<string> Sensitive { get; set; } = [];
         public Dictionary<string, string> Aliases { get; set; } = [];
+        public Dictionary<string, string> Edits { get; set; } = [];
     }
 
     private readonly string _path;
@@ -57,6 +58,7 @@ public sealed class MetadataStore
     public bool IsPinned(string ts) { lock (_gate) return _model.Pinned.Contains(ts); }
     public bool IsSensitive(string ts) { lock (_gate) return _model.Sensitive.Contains(ts); }
     public string? Alias(string ts) { lock (_gate) return _model.Aliases.GetValueOrDefault(ts); }
+    public string? Edit(string ts) { lock (_gate) return _model.Edits.GetValueOrDefault(ts); }
 
     public void SetPinned(string ts, bool on)
     {
@@ -84,12 +86,28 @@ public sealed class MetadataStore
         }
     }
 
+    /// <summary>
+    /// Overrides an item's text without touching the captured row (null/empty
+    /// clears the override and restores the original — same semantics as the
+    /// original backend's edit feature).
+    /// </summary>
+    public void SetEdit(string ts, string? text)
+    {
+        lock (_gate)
+        {
+            if (string.IsNullOrEmpty(text)) _model.Edits.Remove(ts);
+            else _model.Edits[ts] = text;
+            Save();
+        }
+    }
+
     /// <summary>Drop all metadata for a timestamp (called when an item is deleted).</summary>
     public void Forget(string ts)
     {
         lock (_gate)
         {
-            var changed = _model.Pinned.Remove(ts) | _model.Sensitive.Remove(ts) | _model.Aliases.Remove(ts);
+            var changed = _model.Pinned.Remove(ts) | _model.Sensitive.Remove(ts)
+                | _model.Aliases.Remove(ts) | _model.Edits.Remove(ts);
             if (changed) Save();
         }
     }

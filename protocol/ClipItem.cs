@@ -27,6 +27,12 @@ public sealed record ClipItem
 
     public bool HasImage { get; init; }
 
+    /// <summary>Pixel width of the cached image, when known (image items only).</summary>
+    public int? ImageWidth { get; init; }
+
+    /// <summary>Pixel height of the cached image, when known (image items only).</summary>
+    public int? ImageHeight { get; init; }
+
     /// <summary>True when the OS clipboard manager has this item pinned.</summary>
     public bool IsPinned { get; init; }
 

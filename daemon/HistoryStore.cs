@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -128,19 +129,76 @@ public sealed class HistoryStore : IDisposable
             var index = 0;
             while (reader.Read())
             {
-                var item = RowToItem(reader, index);
-                item = item with
+                var item = Hydrate(RowToItem(reader, index));
+                if (item.HasImage && reader["image_path"] is string imagePath &&
+                    ImageSizeFor(imagePath) is (int width, int height))
                 {
-                    Kind = _detectors.Classify(item),
-                    IsUserPinned = _meta.IsPinned(item.Timestamp),
-                    IsSensitive = _meta.IsSensitive(item.Timestamp),
-                    Alias = _meta.Alias(item.Timestamp),
-                };
+                    item = item with { ImageWidth = width, ImageHeight = height };
+                }
                 items.Add(item);
                 index++;
             }
             return items;
         }
+    }
+
+    /// <summary>
+    /// Aggregate counts over the whole history — total, pinned, sensitive, and
+    /// per-kind — optionally scoped to a search query using the same match rule
+    /// as the pickers (text or alias contains, case-insensitive).
+    /// </summary>
+    public ClipCounts GetCounts(string? query)
+    {
+        var q = query?.Trim();
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM items ORDER BY timestamp DESC";
+            using var reader = cmd.ExecuteReader();
+
+            int total = 0, pinned = 0, sensitive = 0;
+            var kinds = new Dictionary<string, int>();
+            while (reader.Read())
+            {
+                var item = Hydrate(RowToItem(reader, 0));
+                if (!string.IsNullOrEmpty(q) &&
+                    !(item.TextContent?.Contains(q, StringComparison.OrdinalIgnoreCase) == true ||
+                      item.Alias?.Contains(q, StringComparison.OrdinalIgnoreCase) == true))
+                    continue;
+                total++;
+                if (item.IsUserPinned) pinned++;
+                if (item.IsSensitive) sensitive++;
+                var kind = item.Kind ?? "text";
+                kinds[kind] = kinds.GetValueOrDefault(kind) + 1;
+            }
+            return new ClipCounts { Total = total, Pinned = pinned, Sensitive = sensitive, Kinds = kinds };
+        }
+    }
+
+    /// <summary>
+    /// Applies the user's edit override (replacing the text non-destructively)
+    /// and metadata, then classifies — so edited text re-detects its kind and a
+    /// stale HTML capture can't shadow the edit.
+    /// </summary>
+    private ClipItem Hydrate(ClipItem item)
+    {
+        if (_meta.Edit(item.Timestamp) is string edit)
+        {
+            item = item with
+            {
+                TextContent = edit,
+                TextLength = edit.Length,
+                HtmlContent = null,
+                IsEdited = true,
+            };
+        }
+        return item with
+        {
+            Kind = _detectors.Classify(item),
+            IsUserPinned = _meta.IsPinned(item.Timestamp),
+            IsSensitive = _meta.IsSensitive(item.Timestamp),
+            Alias = _meta.Alias(item.Timestamp),
+        };
     }
 
     // ── Retention / clear ───────────────────────────────────────────────
@@ -262,6 +320,39 @@ public sealed class HistoryStore : IDisposable
             IsSensitive = false,
             SourceApp = r["source_app"] as string ?? "",
         };
+    }
+
+    // PNG pixel size per cached image, memoized by path (the cache dir is
+    // append-only, so a parsed size never goes stale). Guarded by _gate.
+    private readonly Dictionary<string, (int Width, int Height)?> _imageSizes = [];
+
+    private (int Width, int Height)? ImageSizeFor(string path)
+    {
+        if (_imageSizes.TryGetValue(path, out var cached)) return cached;
+        var size = ReadPngSize(path);
+        _imageSizes[path] = size;
+        return size;
+    }
+
+    // Reads width/height from the PNG IHDR chunk (bytes 16..23, big-endian)
+    // without decoding the image.
+    private static (int Width, int Height)? ReadPngSize(string path)
+    {
+        try
+        {
+            Span<byte> header = stackalloc byte[24];
+            using var fs = File.OpenRead(path);
+            if (fs.ReadAtLeast(header, 24, throwOnEndOfStream: false) < 24) return null;
+            if (header[0] != 0x89 || header[1] != (byte)'P' || header[2] != (byte)'N' || header[3] != (byte)'G')
+                return null;
+            var width = BinaryPrimitives.ReadInt32BigEndian(header[16..20]);
+            var height = BinaryPrimitives.ReadInt32BigEndian(header[20..24]);
+            return width > 0 && height > 0 ? (width, height) : null;
+        }
+        catch
+        {
+            return null; // missing/corrupt cache file — dims are optional
+        }
     }
 
     // Empty string and null hash distinctly so same-timestamp items with

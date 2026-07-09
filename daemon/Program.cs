@@ -146,6 +146,10 @@ app.MapGet("/api/clipboard", (int? limit, string? before) =>
     .WithName("GetHistory")
     .WithSummary("List clipboard history, newest first. Page back with `before` (a timestamp).");
 
+app.MapGet("/api/clipboard/counts", (string? q) => Results.Ok(store.GetCounts(q)))
+    .WithName("GetCounts")
+    .WithSummary("Aggregate counts (total, pinned, sensitive, per kind), optionally scoped to a search query `q`.");
+
 app.MapGet("/api/clipboard/settings", () => Results.Ok(store.LoadSettings()))
     .WithName("GetSettings").WithSummary("Get daemon settings (retention).");
 
@@ -206,6 +210,19 @@ app.MapPost("/api/clipboard/rename", (RenameRequest req) =>
     return Results.Ok(new { req.Timestamp, req.Alias });
 })
     .WithName("RenameItem").WithSummary("Set or clear a custom alias for an item.");
+
+app.MapPost("/api/clipboard/edit", (EditRequest req) =>
+{
+    if (string.IsNullOrEmpty(req.Timestamp)) return Results.BadRequest(new { error = "timestamp required" });
+    meta.SetEdit(req.Timestamp, req.Text);
+    // Same event shape as a capture so every live client refreshes its view.
+    hub.Broadcast(JsonSerializer.Serialize(
+        new { type = "clipboard.changed", timestamp = req.Timestamp, textLength = req.Text?.Length ?? 0 },
+        jsonOpts));
+    return Results.Ok(new { req.Timestamp, edited = !string.IsNullOrEmpty(req.Text) });
+})
+    .WithName("EditItem")
+    .WithSummary("Override an item's text (non-destructive; empty text restores the original capture).");
 
 app.MapGet("/api/clipboard/image/{timestamp}", (string timestamp) =>
 {
@@ -287,3 +304,4 @@ internal sealed record DeleteRequest(string Timestamp);
 internal sealed record PinRequest(string Timestamp, bool Pinned);
 internal sealed record SensitiveRequest(string Timestamp, bool Sensitive);
 internal sealed record RenameRequest(string Timestamp, string? Alias);
+internal sealed record EditRequest(string Timestamp, string? Text);
