@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Clipwell.Protocol;
@@ -13,6 +14,7 @@ public static class ClipDisplay
 {
     public static bool ShowSource = true;
     public static bool ShowTime = true;
+    public static bool ShowChars = true;
 }
 
 /// <summary>
@@ -25,9 +27,17 @@ public sealed class ClipRow : INotifyPropertyChanged
 
     public ClipItem Item { get; }
 
-    public ClipRow(ClipItem item, ClipwellClient? client = null)
+    /// <summary>
+    /// The search query active when this row was built (rows are rebuilt on every
+    /// keystroke), consumed by the preview's highlight control. Sensitive rows
+    /// never highlight — their preview is a mask.
+    /// </summary>
+    public string SearchQuery { get; }
+
+    public ClipRow(ClipItem item, ClipwellClient? client = null, string searchQuery = "")
     {
         Item = item;
+        SearchQuery = item.IsSensitive ? "" : searchQuery;
         if (item.HasImage && !item.IsSensitive && client is not null)
             _ = LoadThumbnailAsync(client);
         else if (!item.IsSensitive && item.Kind is "url" or "github-pr")
@@ -82,20 +92,21 @@ public sealed class ClipRow : INotifyPropertyChanged
 
     public bool IsPinned => Item.IsUserPinned;
     public bool IsSensitive => Item.IsSensitive;
-    public string PinGlyph => Item.IsUserPinned ? "📌" : "";
 
-    public string KindGlyph => Item.Kind switch
-    {
-        "github-pr" => "🔀",
-        "jira-issue" => "🎫",
-        "url" => "🔗",
-        "email" => "✉",
-        "color" => "🎨",
-        "path" => "📁",
-        "code" => "{ }",
-        "image" => "🖼",
-        _ => "📄",
-    };
+    /// <summary>Lucide geometry for the row's kind (sensitive rows always show the lock).</summary>
+    public StreamGeometry KindIcon => Item.IsSensitive ? Icons.Lock : Icons.ForKind(Item.Kind);
+
+    /// <summary>Code-like kinds render their preview in the mono stack.</summary>
+    public bool IsMonoPreview => Item.Kind is "code" or "color" or "path";
+
+    /// <summary>An actual swatch for color items (e.g. <c>#3366ff</c>), or null.</summary>
+    public IBrush? ColorSwatch =>
+        Item.Kind == "color" && !Item.IsSensitive &&
+        Color.TryParse(Item.TextContent?.Trim() ?? "", out var color)
+            ? new SolidColorBrush(color)
+            : null;
+
+    public bool HasColorSwatch => ColorSwatch is not null;
 
     public string Preview
     {
@@ -105,7 +116,7 @@ public sealed class ClipRow : INotifyPropertyChanged
             if (!string.IsNullOrEmpty(Item.Alias)) return Item.Alias!;
             var text = Item.TextContent;
             if (string.IsNullOrEmpty(text))
-                return Item.HasImage ? "🖼  image" : "(empty)";
+                return Item.HasImage ? "image" : "(empty)";
             var oneLine = text.ReplaceLineEndings(" ").Trim();
             return oneLine.Length > 200 ? oneLine[..200] + "…" : oneLine;
         }
@@ -120,9 +131,14 @@ public sealed class ClipRow : INotifyPropertyChanged
     {
         get
         {
-            var parts = new System.Collections.Generic.List<string>(2);
+            var parts = new System.Collections.Generic.List<string>(5);
             if (ClipDisplay.ShowSource && !string.IsNullOrEmpty(Item.SourceApp)) parts.Add(Item.SourceApp!);
             if (ClipDisplay.ShowTime) parts.Add(FormatWhen(Item.Timestamp));
+            if (ClipDisplay.ShowChars && Item is { TextLength: > 0, HasImage: false, IsSensitive: false })
+                parts.Add(Item.TextLength == 1 ? "1 char" : $"{Item.TextLength:N0} chars");
+            if (Item is { ImageWidth: int width, ImageHeight: int height })
+                parts.Add($"{width}×{height}");
+            if (Item.IsEdited) parts.Add("edited");
             return string.Join(" · ", parts);
         }
     }

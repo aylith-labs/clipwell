@@ -1,0 +1,105 @@
+<!--
+  Class-based control styles on top of FluentTheme. Resource overrides + classes
+  only — no retemplating (safer across Avalonia upgrades, and cheaper).
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:Clipwell.Ui.Controls">
+
+    <!-- Lucide icons: stroke-rendered Path (the geometry is stroke-based). -->
+    <Style Selector="Path.lucide">
+        <Setter Property="Fill" Value="{x:Null}" />
+        <Setter Property="Stroke" Value="{DynamicResource ClipTextSecondary}" />
+        <Setter Property="StrokeThickness" Value="1.75" />
+        <Setter Property="StrokeLineCap" Value="Round" />
+        <Setter Property="StrokeJoin" Value="Round" />
+        <Setter Property="Stretch" Value="Uniform" />
+    </Style>
+    <Style Selector="Path.lucide.accent">
+        <Setter Property="Stroke" Value="{DynamicResource ClipAccent}" />
+    </Style>
+    <Style Selector="Path.lucide.danger">
+        <Setter Property="Stroke" Value="{DynamicResource ClipDanger}" />
+    </Style>
+
+    <!-- Filter pills -->
+    <Style Selector="Button.pill">
+        <Setter Property="Padding" Value="10,5" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ClipRadiusS}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource ClipTextSecondary}" />
+        <Setter Property="FontSize" Value="12.5" />
+    </Style>
+    <Style Selector="Button.pill:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource ClipSurfaceHover}" />
+        <Setter Property="Foreground" Value="{DynamicResource ClipTextPrimary}" />
+    </Style>
+    <Style Selector="Button.pill.active">
+        <Setter Property="Background" Value="{DynamicResource ClipAccentMuted}" />
+        <Setter Property="Foreground" Value="{DynamicResource ClipAccent}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.pill.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource ClipAccentMuted}" />
+        <Setter Property="Foreground" Value="{DynamicResource ClipAccent}" />
+    </Style>
+    <Style Selector="Button.pill Path.lucide">
+        <Setter Property="Stroke" Value="{DynamicResource ClipTextSecondary}" />
+    </Style>
+    <Style Selector="Button.pill.active Path.lucide">
+        <Setter Property="Stroke" Value="{DynamicResource ClipAccent}" />
+    </Style>
+
+    <!-- Accent (primary) button, e.g. Save / Retry -->
+    <Style Selector="Button.accent">
+        <Setter Property="Background" Value="{DynamicResource ClipAccent}" />
+        <Setter Property="Foreground" Value="{DynamicResource ClipOnAccent}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ClipRadiusS}" />
+    </Style>
+    <Style Selector="Button.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource ClipAccentHover}" />
+        <Setter Property="Foreground" Value="{DynamicResource ClipOnAccent}" />
+    </Style>
+
+    <!-- History rows -->
+    <Style Selector="ListBox.history ListBoxItem">
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ClipRadiusS}" />
+        <Setter Property="Margin" Value="0,1" />
+    </Style>
+
+    <!-- Group headers -->
+    <Style Selector="TextBlock.groupHeader">
+        <Setter Property="FontSize" Value="{DynamicResource ClipFontMeta}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource ClipTextTertiary}" />
+        <Setter Property="LetterSpacing" Value="0.6" />
+    </Style>
+
+    <!-- Monospace previews (code / color / path) -->
+    <Style Selector="controls|HighlightedTextBlock.mono, TextBlock.mono">
+        <Setter Property="FontFamily" Value="{DynamicResource ClipFontMono}" />
+    </Style>
+
+    <Style Selector="controls|HighlightedTextBlock">
+        <Setter Property="HighlightBrush" Value="{DynamicResource ClipHighlight}" />
+    </Style>
+
+    <!-- Meta line -->
+    <Style Selector="TextBlock.meta">
+        <Setter Property="FontSize" Value="{DynamicResource ClipFontMeta}" />
+        <Setter Property="Foreground" Value="{DynamicResource ClipTextSecondary}" />
+    </Style>
+
+    <!-- Section headers (settings) -->
+    <Style Selector="TextBlock.section">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource ClipTextSecondary}" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource ClipTextTertiary}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+</Styles>

@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Clipwell.Ui"
+        xmlns:controls="using:Clipwell.Ui.Controls"
         x:Class="Clipwell.Ui.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Clipwell"
@@ -9,47 +10,101 @@
         TransparencyLevelHint="AcrylicBlur"
         Background="Transparent">
 
-    <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
-            CornerRadius="10" Margin="8" BoxShadow="0 8 24 0 #40000000">
-        <Grid Margin="14" RowDefinitions="Auto,Auto,*,Auto">
+    <Border Background="{DynamicResource ClipCardBackground}"
+            CornerRadius="{DynamicResource ClipRadiusL}" Margin="8" BoxShadow="0 8 24 0 #40000000">
+        <Grid Margin="14" RowDefinitions="Auto,Auto,Auto,*,Auto">
 
             <!-- Search -->
             <TextBox Grid.Row="0"
                      Name="SearchBox"
                      Text="{Binding SearchText, Mode=TwoWay}"
                      PlaceholderText="Search clipboard history…"
-                     FontSize="15" CornerRadius="8" Padding="10,8" />
+                     FontSize="{DynamicResource ClipFontSearch}"
+                     CornerRadius="{DynamicResource ClipRadiusM}" Padding="6,8">
+                <TextBox.InnerLeftContent>
+                    <Path Classes="lucide" Data="{x:Static vm:Icons.Search}"
+                          Width="15" Height="15" Margin="10,0,2,0" VerticalAlignment="Center" />
+                </TextBox.InnerLeftContent>
+            </TextBox>
 
-            <!-- Filter tabs + type dropdown -->
+            <!-- Filter pills + view toggle + dropdowns -->
             <Grid Grid.Row="1" Margin="0,10,0,0" ColumnDefinitions="*,Auto">
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5">
-                    <Button Content="All" Command="{Binding SetFilterCommand}" CommandParameter="All"
-                            Padding="10,4" CornerRadius="6" />
-                    <Button Content="📌" ToolTip.Tip="Pinned"
-                            Command="{Binding SetFilterCommand}" CommandParameter="Pinned"
-                            Padding="9,4" CornerRadius="6" />
-                    <Button Content="🔒" ToolTip.Tip="Sensitive"
-                            Command="{Binding SetFilterCommand}" CommandParameter="Sensitive"
-                            Padding="9,4" CornerRadius="6" />
-                    <Button Content="{Binding ViewToggleLabel}" ToolTip.Tip="Compact / Detail view"
-                            Command="{Binding ToggleViewCommand}" Padding="9,4" CornerRadius="6" />
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                    <Button Classes="pill" Classes.active="{Binding IsAllFilter}"
+                            Command="{Binding SetFilterCommand}" CommandParameter="All">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="All" />
+                            <TextBlock Text="{Binding AllCountText}" Opacity="0.65"
+                                       IsVisible="{Binding HasCounts}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="pill" Classes.active="{Binding IsPinnedFilter}" ToolTip.Tip="Pinned"
+                            Command="{Binding SetFilterCommand}" CommandParameter="Pinned">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Path Classes="lucide" Data="{x:Static vm:Icons.Pin}"
+                                  Width="13" Height="13" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding PinnedCountText}" Opacity="0.65"
+                                       IsVisible="{Binding HasCounts}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="pill" Classes.active="{Binding IsSensitiveFilter}" ToolTip.Tip="Sensitive"
+                            Command="{Binding SetFilterCommand}" CommandParameter="Sensitive">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Path Classes="lucide" Data="{x:Static vm:Icons.Lock}"
+                                  Width="13" Height="13" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding SensitiveCountText}" Opacity="0.65"
+                                       IsVisible="{Binding HasCounts}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="pill" ToolTip.Tip="Compact / Detail view"
+                            Command="{Binding ToggleViewCommand}">
+                        <Panel>
+                            <Path Classes="lucide" Data="{x:Static vm:Icons.PanelRight}"
+                                  Width="14" Height="14" IsVisible="{Binding !IsDetail}" />
+                            <Path Classes="lucide" Data="{x:Static vm:Icons.Rows3}"
+                                  Width="14" Height="14" IsVisible="{Binding IsDetail}" />
+                        </Panel>
+                    </Button>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <ComboBox MinWidth="108"
+                    <ComboBox MinWidth="108" FontSize="12.5"
                               ItemsSource="{Binding GroupOptions}"
                               SelectedItem="{Binding SelectedGroup, Mode=TwoWay}" />
-                    <ComboBox MinWidth="116"
+                    <ComboBox MinWidth="116" FontSize="12.5"
                               ItemsSource="{Binding KindOptions}"
-                              SelectedItem="{Binding SelectedKind, Mode=TwoWay}" />
+                              SelectedItem="{Binding SelectedKind, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:KindOption">
+                                <TextBlock Text="{Binding DisplayLabel}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                 </StackPanel>
             </Grid>
 
-            <!-- List + (optional) Detail preview pane, with the rename bar overlaid -->
-            <Grid Grid.Row="2" Margin="0,12,0,0">
+            <!-- Daemon-unreachable banner -->
+            <Border Grid.Row="2" Margin="0,10,0,0"
+                    IsVisible="{Binding IsDaemonDown}"
+                    Background="{DynamicResource ClipDangerSurface}"
+                    CornerRadius="{DynamicResource ClipRadiusM}" Padding="10,7">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Path Classes="lucide danger" Data="{x:Static vm:Icons.TriangleAlert}"
+                          Width="15" Height="15" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Margin="8,0" VerticalAlignment="Center" FontSize="12.5"
+                               Foreground="{DynamicResource ClipDanger}"
+                               Text="Daemon unreachable. Showing the last loaded history." />
+                    <Button Grid.Column="2" Classes="accent" Content="Retry" FontSize="12" Padding="10,3"
+                            Command="{Binding RetryCommand}" />
+                </Grid>
+            </Border>
+
+            <!-- List + (optional) Detail preview pane, with the rename/edit bars overlaid -->
+            <Grid Grid.Row="3" Margin="0,12,0,0">
                 <Grid ColumnDefinitions="*,Auto">
                     <!-- History list -->
                     <ListBox Grid.Column="0"
                              Name="ItemsList"
+                             Classes="history"
                              ItemsSource="{Binding Items}"
                              SelectedItem="{Binding Selected, Mode=TwoWay}"
                              Background="Transparent"
@@ -57,26 +112,40 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:ClipRow">
                                 <StackPanel ToolTip.Tip="{Binding FullText}" ToolTip.ShowDelay="600">
-                                  <TextBlock Text="{Binding GroupHeader}" IsVisible="{Binding HasGroupHeader}"
-                                             FontSize="11" FontWeight="SemiBold" Opacity="0.5"
-                                             Margin="2,8,0,2" />
-                                  <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2">
-                                    <Panel Grid.Column="0" Width="24" Margin="0,0,10,0" VerticalAlignment="Top">
-                                        <TextBlock Text="{Binding KindGlyph}" FontSize="15"
-                                                   IsVisible="{Binding ShowGlyph}" Opacity="0.85" />
-                                        <Image Source="{Binding Thumbnail}" Width="24" Height="24"
+                                  <TextBlock Classes="groupHeader" Text="{Binding GroupHeader}"
+                                             IsVisible="{Binding HasGroupHeader}" Margin="2,10,0,4" />
+                                  <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,1">
+                                    <!-- Selection edge (space always reserved — no layout shift) -->
+                                    <Panel Grid.Column="0" Width="3" Margin="0,2,8,2">
+                                        <Border CornerRadius="1.5" Background="{DynamicResource ClipAccent}"
+                                                IsVisible="{Binding $parent[ListBoxItem].IsSelected}" />
+                                    </Panel>
+                                    <Panel Grid.Column="1" Width="22" Margin="0,1,10,0" VerticalAlignment="Top">
+                                        <Path Classes="lucide" Data="{Binding KindIcon}" Width="16" Height="16"
+                                              HorizontalAlignment="Center" VerticalAlignment="Top"
+                                              IsVisible="{Binding ShowGlyph}" />
+                                        <Image Source="{Binding Thumbnail}" Width="22" Height="22"
                                                IsVisible="{Binding HasThumbnail}" Stretch="UniformToFill" />
                                     </Panel>
-                                    <StackPanel Grid.Column="1" Spacing="2">
-                                        <TextBlock Text="{Binding Preview}"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   MaxLines="2" TextWrapping="Wrap"
-                                                   FontSize="14" />
-                                        <TextBlock Text="{Binding Meta}"
-                                                   FontSize="11" Opacity="0.55" />
+                                    <StackPanel Grid.Column="2" Spacing="2">
+                                        <Grid ColumnDefinitions="Auto,*">
+                                            <Border Width="10" Height="10" CornerRadius="3" Margin="0,0,6,0"
+                                                    Background="{Binding ColorSwatch}"
+                                                    BorderBrush="{DynamicResource ClipBorder}" BorderThickness="1"
+                                                    IsVisible="{Binding HasColorSwatch}" VerticalAlignment="Center" />
+                                            <controls:HighlightedTextBlock Grid.Column="1"
+                                                    Classes.mono="{Binding IsMonoPreview}"
+                                                    HighlightedText="{Binding Preview}"
+                                                    Query="{Binding SearchQuery}"
+                                                    TextTrimming="CharacterEllipsis"
+                                                    MaxLines="2" TextWrapping="Wrap"
+                                                    FontSize="{DynamicResource ClipFontBody}" />
+                                        </Grid>
+                                        <TextBlock Classes="meta" Text="{Binding Meta}" />
                                     </StackPanel>
-                                    <TextBlock Grid.Column="2" Text="{Binding PinGlyph}"
-                                               FontSize="13" VerticalAlignment="Top" Margin="8,0,0,0" />
+                                    <Path Grid.Column="3" Classes="lucide accent" Data="{x:Static vm:Icons.Pin}"
+                                          Width="13" Height="13" IsVisible="{Binding IsPinned}"
+                                          VerticalAlignment="Top" Margin="8,2,0,0" />
                                   </Grid>
                                 </StackPanel>
                             </DataTemplate>
@@ -86,14 +155,17 @@
                     <!-- Detail preview pane (collapses to 0 width in Compact mode) -->
                     <Border Grid.Column="1" Width="340" Margin="12,0,0,0"
                             IsVisible="{Binding IsDetail}"
-                            Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
-                            CornerRadius="8" Padding="14">
+                            Background="{DynamicResource ClipSurface1}"
+                            CornerRadius="{DynamicResource ClipRadiusM}" Padding="14">
                         <Grid RowDefinitions="Auto,*">
                             <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,10">
-                                <TextBlock Text="{Binding Selected.Item.Kind}"
-                                           FontWeight="SemiBold" FontSize="13" />
-                                <TextBlock Text="{Binding Selected.Meta}"
-                                           FontSize="11" Opacity="0.6" />
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <Path Classes="lucide" Data="{Binding Selected.KindIcon}"
+                                          Width="14" Height="14" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Selected.Item.Kind}"
+                                               FontWeight="SemiBold" FontSize="13" />
+                                </StackPanel>
+                                <TextBlock Classes="meta" Text="{Binding Selected.Meta}" />
                             </StackPanel>
                             <ScrollViewer Grid.Row="1">
                                 <Panel>
@@ -104,7 +176,7 @@
                                     <TextBlock Text="{Binding Selected.FullText}"
                                                IsVisible="{Binding PreviewHasText}"
                                                TextWrapping="Wrap"
-                                               FontFamily="Cascadia Code,Consolas,monospace"
+                                               FontFamily="{DynamicResource ClipFontMono}"
                                                FontSize="12.5" />
                                 </Panel>
                             </ScrollViewer>
@@ -115,37 +187,61 @@
                 <!-- Rename bar (F2) — overlays the top of the list area -->
                 <Border ZIndex="10" VerticalAlignment="Top"
                         IsVisible="{Binding IsRenaming}"
-                        Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
-                        BorderBrush="{DynamicResource SystemAccentColor}" BorderThickness="1"
-                        CornerRadius="8" Padding="10,8">
+                        Background="{DynamicResource ClipCardBackground}"
+                        BorderBrush="{DynamicResource ClipAccent}" BorderThickness="1"
+                        CornerRadius="{DynamicResource ClipRadiusM}" Padding="10,8">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="Rename:" VerticalAlignment="Center" Opacity="0.7" />
+                        <TextBlock Text="Rename:" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource ClipTextSecondary}" />
                         <TextBox Name="RenameBox" Width="380"
                                  Text="{Binding RenameText, Mode=TwoWay}"
                                  PlaceholderText="alias (empty to clear)" />
                     </StackPanel>
                 </Border>
+
+                <!-- Edit bar (Ctrl+E) — overlays the top of the list area -->
+                <Border ZIndex="11" VerticalAlignment="Top"
+                        IsVisible="{Binding IsEditing}"
+                        Background="{DynamicResource ClipCardBackground}"
+                        BorderBrush="{DynamicResource ClipAccent}" BorderThickness="1"
+                        CornerRadius="{DynamicResource ClipRadiusM}" Padding="10,8">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <Path Classes="lucide" Data="{x:Static vm:Icons.SquarePen}"
+                                  Width="13" Height="13" VerticalAlignment="Center" />
+                            <TextBlock Text="Edit content" FontSize="12"
+                                       Foreground="{DynamicResource ClipTextSecondary}" />
+                        </StackPanel>
+                        <TextBox Name="EditBox" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="140"
+                                 Text="{Binding EditText, Mode=TwoWay}"
+                                 FontFamily="{DynamicResource ClipFontMono}" FontSize="12.5" />
+                        <TextBlock Classes="hint"
+                                   Text="Ctrl+Enter to save · Esc to cancel · empty text restores the original" />
+                    </StackPanel>
+                </Border>
             </Grid>
 
             <!-- Status bar -->
-            <TextBlock Grid.Row="3" Margin="2,10,2,0"
-                       Text="{Binding Status}"
-                       FontSize="11" Opacity="0.5" />
+            <TextBlock Grid.Row="4" Margin="2,10,2,0" Classes="meta"
+                       Foreground="{DynamicResource ClipTextTertiary}"
+                       Text="{Binding Status}" />
 
             <!-- Action palette (Ctrl+K) -->
-            <Border Grid.Row="0" Grid.RowSpan="4" ZIndex="120"
+            <Border Grid.Row="0" Grid.RowSpan="5" ZIndex="120"
                     Name="ActionBackdrop"
                     IsVisible="{Binding IsActionPalette}"
                     Background="#99000000">
-                <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
-                        CornerRadius="10" Width="420" MaxHeight="420"
+                <Border Background="{DynamicResource ClipCardBackground}"
+                        CornerRadius="{DynamicResource ClipRadiusL}" Width="420" MaxHeight="420"
                         VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,80,0,0"
                         BoxShadow="0 8 24 0 #60000000" Padding="10">
                     <DockPanel>
                         <TextBox DockPanel.Dock="Top" Name="ActionSearchBox"
                                  Text="{Binding ActionSearch, Mode=TwoWay}"
-                                 PlaceholderText="Actions…" Margin="0,0,0,8" CornerRadius="6" Padding="8,6" />
+                                 PlaceholderText="Actions…" Margin="0,0,0,8"
+                                 CornerRadius="{DynamicResource ClipRadiusS}" Padding="8,6" />
                         <ListBox Name="ActionList"
+                                 Classes="history"
                                  ItemsSource="{Binding ActionItems}"
                                  SelectedItem="{Binding SelectedAction, Mode=TwoWay}"
                                  Background="Transparent" MaxHeight="340">
@@ -160,17 +256,21 @@
             </Border>
 
             <!-- Quick Look overlay (Ctrl+Y) — fullscreen preview of the selected item -->
-            <Border Grid.Row="0" Grid.RowSpan="4" ZIndex="100"
+            <Border Grid.Row="0" Grid.RowSpan="5" ZIndex="100"
                     Name="QuickLookBackdrop"
                     IsVisible="{Binding IsQuickLook}"
                     Background="#CC000000">
-                <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
-                        CornerRadius="10" Margin="36" Padding="20" MaxWidth="1100"
+                <Border Background="{DynamicResource ClipCardBackground}"
+                        CornerRadius="{DynamicResource ClipRadiusL}" Margin="36" Padding="20" MaxWidth="1100"
                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                     <Grid RowDefinitions="Auto,*">
                         <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,12">
-                            <TextBlock Text="{Binding Selected.Item.Kind}" FontWeight="SemiBold" FontSize="14" />
-                            <TextBlock Text="{Binding Selected.Meta}" FontSize="11" Opacity="0.6" />
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <Path Classes="lucide" Data="{Binding Selected.KindIcon}"
+                                      Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Selected.Item.Kind}" FontWeight="SemiBold" FontSize="14" />
+                            </StackPanel>
+                            <TextBlock Classes="meta" Text="{Binding Selected.Meta}" />
                         </StackPanel>
                         <ScrollViewer Grid.Row="1">
                             <Panel>
@@ -181,7 +281,7 @@
                                 <TextBlock Text="{Binding Selected.FullText}"
                                            IsVisible="{Binding PreviewHasText}"
                                            TextWrapping="Wrap"
-                                           FontFamily="Cascadia Code,Consolas,monospace"
+                                           FontFamily="{DynamicResource ClipFontMono}"
                                            FontSize="14" />
                             </Panel>
                         </ScrollViewer>

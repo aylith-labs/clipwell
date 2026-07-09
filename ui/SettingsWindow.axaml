@@ -1,26 +1,27 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Clipwell.Ui"
         x:Class="Clipwell.Ui.SettingsWindow"
         Title="Clipwell Settings"
-        Width="440" Height="640"
+        Width="440" Height="660"
         WindowStartupLocation="CenterScreen"
         CanResize="False">
-    <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}" Padding="24">
+    <Border Background="{DynamicResource ClipCardBackground}" Padding="24">
         <DockPanel>
-            <TextBlock DockPanel.Dock="Top" Text="Settings" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,14" />
+            <TextBlock DockPanel.Dock="Top" Text="Settings" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,16" />
 
-            <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto,Auto" Margin="0,14,0,0">
-                <TextBlock Grid.Column="0" Name="StatusText" FontSize="12" Opacity="0.7" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Name="CloseButton" Content="Close" Padding="16,6" Margin="0,0,10,0" />
-                <Button Grid.Column="2" Name="SaveButton" Content="Save" Padding="16,6"
-                        Background="{DynamicResource SystemAccentColor}" />
+            <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto,Auto" Margin="0,16,0,0">
+                <TextBlock Grid.Column="0" Name="StatusText" Classes="hint" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Name="CloseButton" Content="Close" Padding="16,6" Margin="0,0,10,0"
+                        CornerRadius="{DynamicResource ClipRadiusS}" />
+                <Button Grid.Column="2" Name="SaveButton" Content="Save" Padding="16,6" Classes="accent" />
             </Grid>
 
             <ScrollViewer>
-                <StackPanel Spacing="18">
+                <StackPanel Spacing="20">
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="Appearance" FontWeight="Medium" />
+                        <TextBlock Classes="section" Text="APPEARANCE" />
                         <ComboBox Name="ThemeBox" HorizontalAlignment="Stretch">
                             <ComboBoxItem>System</ComboBoxItem>
                             <ComboBoxItem>Light</ComboBoxItem>
@@ -29,7 +30,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="Default view" FontWeight="Medium" />
+                        <TextBlock Classes="section" Text="DEFAULT VIEW" />
                         <ComboBox Name="ViewBox" HorizontalAlignment="Stretch">
                             <ComboBoxItem>Compact</ComboBoxItem>
                             <ComboBoxItem>Detail</ComboBoxItem>
@@ -37,7 +38,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="Default grouping" FontWeight="Medium" />
+                        <TextBlock Classes="section" Text="DEFAULT GROUPING" />
                         <ComboBox Name="GroupBox" HorizontalAlignment="Stretch">
                             <ComboBoxItem>No grouping</ComboBoxItem>
                             <ComboBoxItem>By date</ComboBoxItem>
@@ -46,15 +47,15 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="Row metadata" FontWeight="Medium" />
+                        <TextBlock Classes="section" Text="ROW METADATA" />
                         <CheckBox Name="ShowSourceBox" Content="Show source app" />
                         <CheckBox Name="ShowTimeBox" Content="Show time" />
+                        <CheckBox Name="ShowCharsBox" Content="Show character count" />
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="History retention" FontWeight="Medium" />
-                        <TextBlock Text="How long to keep clipboard history before it's swept."
-                                   FontSize="12" Opacity="0.6" />
+                        <TextBlock Classes="section" Text="HISTORY RETENTION" />
+                        <TextBlock Classes="hint" Text="How long to keep clipboard history before it's swept." />
                         <ComboBox Name="RetentionBox" HorizontalAlignment="Stretch" SelectedIndex="1">
                             <ComboBoxItem>7 days</ComboBoxItem>
                             <ComboBoxItem>30 days</ComboBoxItem>
@@ -64,24 +65,25 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="Picker position" FontWeight="Medium" />
+                        <TextBlock Classes="section" Text="PICKER POSITION" />
                         <CheckBox Name="OpenAtCursorBox" Content="Open at the mouse cursor" />
-                        <TextBlock Text="Otherwise the picker opens centered on the screen."
-                                   FontSize="12" Opacity="0.6" />
+                        <TextBlock Classes="hint" Text="Otherwise the picker opens centered on the screen." />
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="Global hotkey" FontWeight="Medium" />
+                        <TextBlock Classes="section" Text="GLOBAL HOTKEY" />
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <Border Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
-                                    CornerRadius="6" Padding="10,6" MinWidth="140" VerticalAlignment="Center">
+                            <Border Background="{DynamicResource ClipSurface1}"
+                                    CornerRadius="{DynamicResource ClipRadiusS}" Padding="10,6"
+                                    MinWidth="140" VerticalAlignment="Center">
                                 <TextBlock Name="HotkeyText" Text="Alt+Shift+V"
-                                           FontFamily="Cascadia Code,Consolas,monospace" />
+                                           FontFamily="{DynamicResource ClipFontMono}" />
                             </Border>
-                            <Button Name="RecordButton" Content="Change…" Padding="12,6" />
+                            <Button Name="RecordButton" Content="Change…" Padding="12,6"
+                                    CornerRadius="{DynamicResource ClipRadiusS}" />
                         </StackPanel>
-                        <TextBlock Text="Click Change, then press a combo (e.g. Ctrl+Shift+V). Requires a modifier."
-                                   FontSize="12" Opacity="0.6" />
+                        <TextBlock Classes="hint"
+                                   Text="Click Change, then press a combo (e.g. Ctrl+Shift+V). Requires a modifier." />
                     </StackPanel>
 
                 </StackPanel>

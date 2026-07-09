@@ -65,6 +65,26 @@ public sealed class ClipwellClient
     public async Task RenameAsync(string timestamp, string? alias) =>
         await _http.PostAsJsonAsync("/api/clipboard/rename", new { timestamp, alias });
 
+    /// <summary>Override an item's text (empty/null restores the original capture).</summary>
+    public async Task EditAsync(string timestamp, string? text) =>
+        await _http.PostAsJsonAsync("/api/clipboard/edit", new { timestamp, text });
+
+    /// <summary>Aggregate counts, scoped to the active search when one is given.</summary>
+    public async Task<ClipCounts?> GetCountsAsync(string? query = null)
+    {
+        try
+        {
+            var url = string.IsNullOrWhiteSpace(query)
+                ? "/api/clipboard/counts"
+                : $"/api/clipboard/counts?q={Uri.EscapeDataString(query)}";
+            return await _http.GetFromJsonAsync<ClipCounts>(url);
+        }
+        catch
+        {
+            return null; // counts are decoration — never block the picker on them
+        }
+    }
+
     /// <summary>Absolute URL to an item's cached image (for thumbnails).</summary>
     public string ImageUrl(string timestamp) =>
         new Uri(_baseUri, $"/api/clipboard/image/{Uri.EscapeDataString(timestamp)}").ToString();
@@ -98,6 +118,9 @@ public sealed class ClipwellClient
             {
                 using var socket = new ClientWebSocket();
                 await socket.ConnectAsync(wsUri, ct);
+                // Resync on every (re)connect: after a daemon restart this pulls
+                // fresh history and clears the picker's unreachable banner.
+                onChange();
                 while (socket.State == WebSocketState.Open && !ct.IsCancellationRequested)
                 {
                     var result = await socket.ReceiveAsync(buffer, ct);

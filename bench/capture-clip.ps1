@@ -5,6 +5,9 @@
 #
 #   powershell -ExecutionPolicy Bypass -File bench/capture-clip.ps1
 $ErrorActionPreference = 'Stop'
+# A UNC working directory (e.g. \\wsl.localhost\...) hangs the daemon's config
+# file-watchers before its first log line - run from a local dir.
+Set-Location $env:TEMP
 $repo = Split-Path $PSScriptRoot -Parent
 $daemonExe = Join-Path $repo 'daemon\bin\Release\net10.0\Clipwell.Daemon.exe'
 $uiExe     = Join-Path $repo 'ui\bin\Release\net10.0\Clipwell.Ui.exe'

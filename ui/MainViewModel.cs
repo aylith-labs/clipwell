@@ -21,10 +21,23 @@ public enum ClipFilter
     Sensitive,
 }
 
-/// <summary>A selectable kind filter for the picker's type dropdown.</summary>
-public sealed record KindOption(string Label, string Value)
+/// <summary>
+/// A selectable kind filter for the picker's type dropdown, with a live item
+/// count once the daemon's counts endpoint has answered.
+/// </summary>
+public sealed partial class KindOption(string label, string value) : ObservableObject
 {
-    public override string ToString() => Label; // ComboBox display
+    public string Label { get; } = label;
+    public string Value { get; } = value;
+
+    [ObservableProperty]
+    private int? _count;
+
+    public string DisplayLabel => Count is int count ? $"{Label} ({count})" : Label;
+
+    partial void OnCountChanged(int? value) => OnPropertyChanged(nameof(DisplayLabel));
+
+    public override string ToString() => Label;
 }
 
 /// <summary>A grouping option for the picker (none / date / source).</summary>
@@ -61,6 +74,63 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private ClipFilter _filter = ClipFilter.All;
 
+    public bool IsAllFilter => Filter == ClipFilter.All;
+    public bool IsPinnedFilter => Filter == ClipFilter.Pinned;
+    public bool IsSensitiveFilter => Filter == ClipFilter.Sensitive;
+
+    // ── Live counts (filter pills + kind dropdown) ───────────────────────
+    [ObservableProperty]
+    private ClipCounts? _counts;
+
+    public bool HasCounts => Counts is not null;
+    public string AllCountText => Counts?.Total.ToString() ?? "";
+    public string PinnedCountText => Counts?.Pinned.ToString() ?? "";
+    public string SensitiveCountText => Counts?.Sensitive.ToString() ?? "";
+
+    partial void OnCountsChanged(ClipCounts? value)
+    {
+        OnPropertyChanged(nameof(HasCounts));
+        OnPropertyChanged(nameof(AllCountText));
+        OnPropertyChanged(nameof(PinnedCountText));
+        OnPropertyChanged(nameof(SensitiveCountText));
+        foreach (var option in KindOptions)
+            option.Count = value is null ? null
+                : option.Value == "all" ? value.Total
+                : value.Kinds.GetValueOrDefault(option.Value);
+    }
+
+    private CancellationTokenSource? _countsDebounce;
+
+    /// <summary>Refetch counts for the active search; a failed call keeps the last values.</summary>
+    private async Task RefreshCountsAsync()
+    {
+        var counts = await _client.GetCountsAsync(SearchText.Trim());
+        if (counts is not null) Counts = counts;
+    }
+
+    // Search keystrokes rebuild the list synchronously but only ping the counts
+    // endpoint after a 200 ms pause, so typing never floods the daemon.
+    private void DebounceCountsRefresh()
+    {
+        _countsDebounce?.Cancel();
+        var cts = _countsDebounce = new CancellationTokenSource();
+        var query = SearchText.Trim();
+        _ = Task.Run(async () =>
+        {
+            try { await Task.Delay(200, cts.Token); } catch (OperationCanceledException) { return; }
+            var counts = await _client.GetCountsAsync(query);
+            if (counts is not null && !cts.IsCancellationRequested)
+                Dispatcher.UIThread.Post(() => Counts = counts);
+        });
+    }
+
+    // ── Daemon connectivity (error banner) ───────────────────────────────
+    [ObservableProperty]
+    private bool _isDaemonDown;
+
+    [RelayCommand]
+    private Task RetryAsync() => ReloadAsync();
+
     /// <summary>Type-filter options for the dropdown (label → kind id; "all" = no filter).</summary>
     public IReadOnlyList<KindOption> KindOptions { get; } =
     [
@@ -95,6 +165,37 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _renameText = "";
 
+    // ── Edit content (Ctrl+E) ────────────────────────────────────────────
+    [ObservableProperty]
+    private bool _isEditing;
+
+    [ObservableProperty]
+    private string _editText = "";
+
+    /// <summary>Open the edit bar for text-bearing, non-sensitive items.</summary>
+    public bool BeginEdit()
+    {
+        if (Selected?.Item is not { } item || string.IsNullOrEmpty(item.TextContent) || item.IsSensitive)
+            return false;
+        EditText = item.TextContent;
+        IsEditing = true;
+        return true;
+    }
+
+    public void CancelEdit() => IsEditing = false;
+
+    [RelayCommand]
+    private async Task CommitEditAsync()
+    {
+        if (Selected is not null)
+        {
+            // Empty text clears the override, restoring the original capture.
+            await _client.EditAsync(Selected.Item.Timestamp, EditText);
+            await ReloadAsync();
+        }
+        IsEditing = false;
+    }
+
     // ── Detail view (split list + preview pane) ──────────────────────────
     [ObservableProperty]
     private bool _isDetail;
@@ -102,7 +203,6 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private Bitmap? _previewImage;
 
-    public string ViewToggleLabel => IsDetail ? "▤" : "▦";
     public bool PreviewHasImage => PreviewImage is not null;
     public bool PreviewHasText => PreviewImage is null && !string.IsNullOrEmpty(Selected?.FullText);
 
@@ -163,8 +263,6 @@ public sealed partial class MainViewModel : ObservableObject
         SelectedAction = ActionItems.FirstOrDefault();
     }
 
-    partial void OnIsDetailChanged(bool value) => OnPropertyChanged(nameof(ViewToggleLabel));
-
     partial void OnPreviewImageChanged(Bitmap? value)
     {
         OnPropertyChanged(nameof(PreviewHasImage));
@@ -215,17 +313,36 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Force a fresh load (used when the picker is re-shown).</summary>
     public Task RefreshAsync() => ReloadAsync();
 
-    /// <summary>Apply persisted UI preferences (default view + grouping) and refresh.</summary>
+    /// <summary>
+    /// Apply persisted UI preferences (default view + grouping) and refresh.
+    /// The screenshot-capture env hooks win over saved preferences (same rule
+    /// as CLIPWELL_THEME in App), so captures can't be raced back to defaults.
+    /// </summary>
     public void ApplyPreferences(ClipboardSettings s)
     {
-        IsDetail = s.DefaultView == "detail";
-        var g = GroupOptions.FirstOrDefault(o => o.Value == s.DefaultGroup);
-        if (g is not null) SelectedGroup = g;
+        if (Environment.GetEnvironmentVariable("CLIPWELL_VIEW") is null)
+            IsDetail = s.DefaultView == "detail";
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CLIPWELL_GROUP")))
+        {
+            var g = GroupOptions.FirstOrDefault(o => o.Value == s.DefaultGroup);
+            if (g is not null) SelectedGroup = g;
+        }
         ApplyFilter(); // rebuild rows so metadata toggles take effect
     }
 
-    partial void OnSearchTextChanged(string value) => ApplyFilter();
-    partial void OnFilterChanged(ClipFilter value) => ApplyFilter();
+    partial void OnSearchTextChanged(string value)
+    {
+        ApplyFilter();
+        DebounceCountsRefresh();
+    }
+
+    partial void OnFilterChanged(ClipFilter value)
+    {
+        OnPropertyChanged(nameof(IsAllFilter));
+        OnPropertyChanged(nameof(IsPinnedFilter));
+        OnPropertyChanged(nameof(IsSensitiveFilter));
+        ApplyFilter();
+    }
     partial void OnSelectedKindChanged(KindOption value) => ApplyFilter();
     partial void OnSelectedGroupChanged(GroupOption value) => ApplyFilter();
 
@@ -291,11 +408,14 @@ public sealed partial class MainViewModel : ObservableObject
             _all = [.. await _client.GetPageAsync(PageSize)];
             _oldestLoaded = _all.Count > 0 ? _all[^1].Timestamp : null;
             _allLoaded = _all.Count < PageSize;
+            IsDaemonDown = false;
             ApplyFilter();
+            _ = RefreshCountsAsync();
         }
         catch
         {
-            Status = "Daemon unreachable — is it running?";
+            IsDaemonDown = true;
+            Status = "Daemon unreachable. Is it running?";
         }
     }
 
@@ -319,9 +439,10 @@ public sealed partial class MainViewModel : ObservableObject
             if (page.Count < PageSize) _allLoaded = true;
 
             var group = SelectedGroup?.Value ?? "none";
+            var query = SearchText.Trim();
             foreach (var item in fresh.Where(PassesFilter))
             {
-                var row = new ClipRow(item, _client);
+                var row = new ClipRow(item, _client, query);
                 AssignHeader(row, group);
                 Items.Add(row);
             }
@@ -370,9 +491,10 @@ public sealed partial class MainViewModel : ObservableObject
 
         Items.Clear();
         _lastBucket = null;
+        var query = SearchText.Trim();
         foreach (var item in ordered)
         {
-            var row = new ClipRow(item, _client);
+            var row = new ClipRow(item, _client, query);
             AssignHeader(row, group);
             Items.Add(row);
         }

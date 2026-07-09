@@ -80,6 +80,7 @@ public partial class SettingsWindow : Window
         GroupBox.SelectedIndex = Math.Max(0, Array.IndexOf(Groups, s.DefaultGroup));
         ShowSourceBox.IsChecked = s.ShowSource;
         ShowTimeBox.IsChecked = s.ShowTime;
+        ShowCharsBox.IsChecked = s.ShowChars;
         _hotkey = string.IsNullOrWhiteSpace(s.Hotkey) ? "Alt+Shift+V" : s.Hotkey;
         HotkeyText.Text = _hotkey;
     }
@@ -98,6 +99,7 @@ public partial class SettingsWindow : Window
                 DefaultGroup = Groups[Math.Max(0, GroupBox.SelectedIndex)],
                 ShowSource = ShowSourceBox.IsChecked == true,
                 ShowTime = ShowTimeBox.IsChecked == true,
+                ShowChars = ShowCharsBox.IsChecked == true,
                 Hotkey = _hotkey,
             });
             App.NotifySettingsChanged(); // apply live (theme, view, metadata, hotkey)

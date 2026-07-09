@@ -44,6 +44,7 @@ public partial class MainWindow : Window
         ItemsList.DoubleTapped += (_, _) => _ = CopySelectedAndHideAsync();
         Deactivated += (_, _) => { if (AutoHide && IsVisible) Hide(); };
         RenameBox.KeyDown += OnRenameBoxKeyDown;
+        EditBox.KeyDown += OnEditBoxKeyDown;
         ItemsList.AddHandler(ScrollViewer.ScrollChangedEvent, OnListScrollChanged);
         QuickLookBackdrop.PointerPressed += (_, _) => _vm.CloseQuickLook();
         ActionBackdrop.PointerPressed += (_, _) => _vm.CloseActionPalette();
@@ -137,12 +138,30 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnEditBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Enter when e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                _vm.CommitEditCommand.Execute(null);
+                SearchBox.Focus();
+                e.Handled = true;
+                break;
+            case Key.Escape:
+                _vm.CancelEdit();
+                SearchBox.Focus();
+                e.Handled = true;
+                break;
+        }
+    }
+
     /// <summary>Apply persisted UI preferences (called by App after loading settings).</summary>
     public void ApplyPreferences(Clipwell.Protocol.ClipboardSettings s)
     {
         _openAtCursor = s.OpenAtCursor;
         ClipDisplay.ShowSource = s.ShowSource;
         ClipDisplay.ShowTime = s.ShowTime;
+        ClipDisplay.ShowChars = s.ShowChars;
         _vm.ApplyPreferences(s);
     }
 
@@ -208,6 +227,19 @@ public partial class MainWindow : Window
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        // While the multi-line edit bar is open, only Esc (handled by the box and
+        // here as a fallback) may reach the window shortcuts.
+        if (_vm.IsEditing)
+        {
+            if (e.Key == Key.Escape)
+            {
+                _vm.CancelEdit();
+                SearchBox.Focus();
+                e.Handled = true;
+            }
+            base.OnKeyDown(e);
+            return;
+        }
         switch (e.Key)
         {
             case Key.Escape:
@@ -223,6 +255,12 @@ public partial class MainWindow : Window
             case Key.K when e.KeyModifiers.HasFlag(KeyModifiers.Control):
                 if (_vm.IsActionPalette) _vm.CloseActionPalette();
                 else if (_vm.OpenActionPalette()) ActionSearchBox.Focus();
+                e.Handled = true;
+                break;
+            // Alt+Shift+Enter pastes as plain text; plain Enter keeps HTML fidelity.
+            case Key.Enter when e.KeyModifiers.HasFlag(KeyModifiers.Alt) &&
+                                e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                _ = CopySelectedAndHideAsync(plain: true);
                 e.Handled = true;
                 break;
             case Key.Enter:
@@ -247,7 +285,17 @@ public partial class MainWindow : Window
                 _vm.TogglePinCommand.Execute(null);
                 e.Handled = true;
                 break;
+            // Old-app chords: Ctrl+E edits, Ctrl+Shift+L toggles sensitive.
             case Key.E when e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                if (_vm.BeginEdit())
+                {
+                    EditBox.Focus();
+                    EditBox.CaretIndex = EditBox.Text?.Length ?? 0;
+                }
+                e.Handled = true;
+                break;
+            case Key.L when e.KeyModifiers.HasFlag(KeyModifiers.Control) &&
+                            e.KeyModifiers.HasFlag(KeyModifiers.Shift):
                 _vm.ToggleSensitiveCommand.Execute(null);
                 e.Handled = true;
                 break;
@@ -267,15 +315,22 @@ public partial class MainWindow : Window
         base.OnKeyDown(e);
     }
 
-    private async Task CopySelectedAndHideAsync()
+    private async Task CopySelectedAndHideAsync(bool plain = false)
     {
-        var text = _vm.Selected?.Item.TextContent;
-        if (string.IsNullOrEmpty(text))
+        var item = _vm.Selected?.Item;
+        var text = item?.TextContent;
+        if (item is null || string.IsNullOrEmpty(text))
         {
             Hide();
             return;
         }
-        if (Clipboard is not null)
+        // Rich path: restore the captured HTML alongside the text (Windows only —
+        // the Unix watchers never capture HTML), so rich-text targets keep
+        // formatting. Plain (Alt+Shift+Enter) and non-HTML items write text only.
+        var wroteRich = false;
+        if (!plain && OperatingSystem.IsWindows() && !string.IsNullOrEmpty(item.HtmlContent))
+            wroteRich = WindowsClipboardWriter.TrySetTextAndHtml(text, item.HtmlContent);
+        if (!wroteRich && Clipboard is not null)
             await Clipboard.SetTextAsync(text);
         var target = _pasteTarget;
         Hide();
