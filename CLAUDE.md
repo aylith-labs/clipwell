@@ -145,9 +145,9 @@ or behavior change:
 2. Add or refresh **media**: a screenshot (and a short usage clip where it helps) of
    the new behavior. Re-capture screenshots whenever the UI changes so they never go stale.
    - **Media is NOT committed to this repo.** It lives on the umbrella media host
-     `media.aylith.com` (served by `infra-hub/stacks/media`). The capture scripts
+     `media.aylith.com` (served by `aylith-infra/stacks/media`). The capture scripts
      still write to `docs/public/media/` locally, but that dir is now **gitignored** —
-     after capturing, upload with `infra-hub/stacks/media/upload.sh` (it lands at
+     after capturing, upload with `aylith-infra/stacks/media/upload.sh` (it lands at
      `media.aylith.com/clipwell/media/<name>-{light,dark}.{png,webm}`). The
      `<ThemedShot>`/`<ThemedClip>` base is `MEDIA_BASE` in `docs/src/lib/media.ts`.
    - **Use the capture scripts** — don't hand-roll: `pwsh bench/capture-shots.ps1`
