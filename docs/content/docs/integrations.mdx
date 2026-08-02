@@ -19,6 +19,12 @@ curl "http://127.0.0.1:8787/api/clipboard?limit=20&before=2026-06-14T00:00:00Z"
 curl http://127.0.0.1:8787/api/clipboard/counts
 curl "http://127.0.0.1:8787/api/clipboard/counts?q=github"
 
+# search the whole history by text or alias (not just the newest page)
+curl "http://127.0.0.1:8787/api/clipboard/search?q=github&limit=50"
+
+# one item by its exact timestamp
+curl "http://127.0.0.1:8787/api/clipboard/item/2026-06-14T00:00:00Z"
+
 # settings, delete, clear
 curl http://127.0.0.1:8787/api/clipboard/settings
 curl -X POST http://127.0.0.1:8787/api/clipboard/delete -d '{"timestamp":"..."}'

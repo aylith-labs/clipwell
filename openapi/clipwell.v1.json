@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://127.0.0.1:8791/"
+      "url": "http://127.0.0.1:8787/"
     }
   ],
   "paths": {
@@ -70,6 +70,65 @@
           {
             "name": "q",
             "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/clipboard/search": {
+      "get": {
+        "tags": [
+          "Clipwell.Daemon"
+        ],
+        "summary": "Search the whole history by text or alias (case-insensitive), newest first.",
+        "operationId": "SearchHistory",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/clipboard/item/{timestamp}": {
+      "get": {
+        "tags": [
+          "Clipwell.Daemon"
+        ],
+        "summary": "Fetch a single history item by its exact timestamp.",
+        "operationId": "GetItem",
+        "parameters": [
+          {
+            "name": "timestamp",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
             }
@@ -307,6 +366,9 @@
             "type": "boolean"
           },
           "showTime": {
+            "type": "boolean"
+          },
+          "showChars": {
             "type": "boolean"
           },
           "hotkey": {

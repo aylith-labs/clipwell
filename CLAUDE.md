@@ -43,7 +43,13 @@ Default port **8787**, override with `CLIPWELL_URL`. CLI base URL override:
 - `GET  /api/clipboard?limit=&before=` → `{ items: ClipItem[] }`
 - `GET  /api/clipboard/counts?q=` → `{ total, pinned, sensitive, kinds }` — counts
   respect the search query (pill semantics)
-- `GET|POST /api/clipboard/settings`
+- `GET  /api/clipboard/search?q=&limit=` → `{ items }` — searches the **whole**
+  history (text or alias, case-insensitive), not just the newest page. Blank `q`
+  is a 400, never "return everything".
+- `GET  /api/clipboard/item/{timestamp}` → one item, or 404
+- `GET|POST /api/clipboard/settings` — POST rejects a `retentionDays` outside
+  `ClipboardSettings.ValidRetentions` (7/30/90/null) with a 400 rather than
+  persisting a value the next read would silently discard
 - `POST /api/clipboard/delete` `{ timestamp }`, `POST /api/clipboard/clear`
 - `POST /api/clipboard/pin|sensitive|rename` `{ timestamp, … }`
 - `POST /api/clipboard/edit` `{ timestamp, text }` — non-destructive overlay in
@@ -62,6 +68,20 @@ Default port **8787**, override with `CLIPWELL_URL`. CLI base URL override:
 SQLite at `%APPDATA%\Roaming\Clipwell\history.db` (Windows) / `~/.config/Clipwell`
 (Linux) / `~/Library/Application Support/Clipwell` (macOS). Schema ported verbatim
 from the old `clipboard-store.ts` so existing history files keep working.
+`DataPaths.Resolve()` owns the directory choice; `HistoryStore`/`MetadataStore`
+take it as a constructor argument so tests can point them at a temp dir instead
+of reading the environment themselves.
+
+Invariants worth keeping:
+- **A pinned item survives the retention sweep.** The docs and the OpenAPI summary
+  both promise it, so `SweepOlderThan` skips anything in `MetadataStore.Pinned`.
+- **Deleting content deletes its metadata.** `DeleteByTimestamp`, `ClearAll`, and
+  the sweep all call `Forget`/`Clear` — otherwise a later capture landing on the
+  same timestamp inherits the old alias, pin, and sensitive flag.
+- **Retention compares instants, not strings.** Rows this daemon writes end in
+  `+00:00`; legacy rows end in `Z`, and a client-supplied timestamp can carry any
+  offset. An unparseable timestamp is kept, never guessed at.
+- **`ClipItem.Id` is the row's primary key**, so it is stable across pages.
 
 ## DEV SAFETY — read before testing locally
 - The default DB path is the **user's real clipboard history**, shared with the
@@ -214,6 +234,24 @@ Second front-end (additive; the Avalonia `ui/` stays). Same daemon, full parity.
     that loads the SPA and connects to the daemon (both themes captured).
 - Don't add `webui/` to `clipwell.slnx`. `dist`, `node_modules`, `src-tauri/target`
   are gitignored.
+
+## Tests
+`tests/Clipwell.Tests` (xunit.v3, in `clipwell.slnx`) — `dotnet test clipwell.slnx`.
+Covers `HistoryStore` (dedup/merge, paging, counts, search, retention, settings,
+PNG sizing, corrupt rows), `MetadataStore` (durability, atomic save, concurrency),
+`DetectorRegistry` (every built-in both ways, priority, misbehaving plugins),
+`ClipboardHub` (fan-out, drop-oldest back-pressure), `PluginLoader` (bad DLLs and
+bad types), and the HTTP surface end-to-end through `WebApplicationFactory`.
+
+Rules for tests here:
+- **Every store under test gets a `TempDataDir`.** Nothing may resolve to the real
+  data dir — see DEV SAFETY above. The API fixture also sets `CLIPWELL_NO_WATCH`
+  and `CLIPWELL_NO_SWEEP`.
+- **Guards get both directions.** A validation or CORS test that only exercises the
+  reject path would look identical if the rule rejected everything, so the accept
+  path is asserted too.
+- A test must fail if the behavior it names regresses. Prefer a fixture that a
+  broken implementation actually gets wrong over one that passes either way.
 
 ## CI (cross-platform)
 `.github/workflows/ci.yml` builds `clipwell.slnx` and runs a daemon smoke test on
