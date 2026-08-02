@@ -1,13 +1,16 @@
-import { createMDX } from 'fumadocs-mdx/next';
+import { createMDX } from "fumadocs-mdx/next";
 
 const withMDX = createMDX();
 
 // PAGES_BASE is set by the GitHub Pages workflow (e.g. "/clipwell"); empty locally.
-const base = process.env.PAGES_BASE || '';
+const base = process.env.PAGES_BASE || "";
 
 /** @type {import('next').NextConfig} */
 const config = {
-  output: 'export',
+  output: "export",
+  // TypeScript 7 is the native Go compiler and exposes no JS compiler API,
+  // so Next.js has to type-check by shelling out to tsc.
+  experimental: { useTypeScriptCli: true },
   reactStrictMode: true,
   basePath: base || undefined,
   images: { unoptimized: true },
