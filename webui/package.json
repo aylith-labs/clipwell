@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "format": "biome check --write .",
     "knip": "knip",
@@ -15,17 +15,17 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "lucide-solid": "1.23.0",
-    "solid-js": "^1.9.13"
+    "lucide-solid": "^1.28.0",
+    "solid-js": "^1.9.14"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.0",
-    "@tailwindcss/vite": "^4.3.1",
-    "@tauri-apps/cli": "^2.11.2",
-    "@typescript/native-preview": "^7.0.0-dev.20260617.2",
-    "knip": "^6.17.1",
-    "tailwindcss": "^4.3.1",
-    "vite": "^8.0.16",
-    "vite-plugin-solid": "^2.11.12"
+    "@biomejs/biome": "^2.5.6",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.11.4",
+    "knip": "^6.31.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0",
+    "vite-plugin-solid": "^2.11.14"
   }
 }
