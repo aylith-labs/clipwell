@@ -20,6 +20,8 @@ daemon/wwwroot/
 
 # Rust / Tauri
 target/
+# tauri-build regenerates the ACL/capability schemas on every build.
+webui/src-tauri/gen/
 
 # OS
 .DS_Store

@@ -4,33 +4,36 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - 'docs/**'
-      - 'engineering/**'
-      - '**/*.md'
+      - '*.md'
+      - 'LICENSE'
   pull_request:
     paths-ignore:
-      - 'docs/**'
-      - 'engineering/**'
-      - '**/*.md'
+      - '*.md'
+      - 'LICENSE'
   workflow_dispatch:
 
 jobs:
   build-test:
-    name: build + smoke (${{ matrix.os }})
+    name: build + test + smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # The Linux leg routes through CI_RUNNER per the handbook; macOS and
+        # Windows have no equivalent variable and are what make this a matrix.
+        os: ["${{ vars.CI_RUNNER || 'ubuntu-latest' }}", macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
       - name: Build (Release)
         run: dotnet build clipwell.slnx -c Release
+
+      - name: Test
+        run: dotnet test clipwell.slnx -c Release --no-build
 
       # Linux needs an X server + a clipboard CLI for the watcher round-trip.
       - name: Install Linux clipboard tooling
@@ -53,12 +56,12 @@ jobs:
     name: webui (frontend checks)
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - name: Install
         working-directory: webui
         run: bun install --frozen-lockfile
-      - name: Type-check (tsgo)
+      - name: Type-check (tsc)
         working-directory: webui
         run: bun run typecheck
       - name: Lint (Biome)
@@ -70,3 +73,64 @@ jobs:
       - name: Build
         working-directory: webui
         run: bun run build
+
+  tauri:
+    name: tauri shell (rust)
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Tauri v2's Linux build needs the webview and tray headers; enigo needs
+      # libxdo for the paste-back keystrokes.
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            build-essential \
+            patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: webui/src-tauri
+
+      - name: Lint (clippy)
+        working-directory: webui/src-tauri
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Test
+        working-directory: webui/src-tauri
+        run: cargo test --locked --lib
+
+  docs:
+    name: docs (${{ matrix.site }})
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        site: [docs, engineering]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install
+        working-directory: ${{ matrix.site }}
+        run: npm ci
+      - name: Type-check
+        working-directory: ${{ matrix.site }}
+        run: npm run types:check
+      - name: Lint (Biome)
+        working-directory: ${{ matrix.site }}
+        run: npm run lint
+      - name: Build
+        working-directory: ${{ matrix.site }}
+        run: npm run build

@@ -19,11 +19,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A gate on push/pull_request cannot block this workflow, so it verifies the
+  # sites itself before anything is published.
+  verify:
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        site: [docs, engineering]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install
+        working-directory: ${{ matrix.site }}
+        run: npm ci
+      - name: Type-check
+        working-directory: ${{ matrix.site }}
+        run: npm run types:check
+      - name: Lint (Biome)
+        working-directory: ${{ matrix.site }}
+        run: npm run lint
+
   build:
+    needs: verify
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
 
