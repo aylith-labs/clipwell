@@ -8,8 +8,14 @@
   <Folder Name="/mcp/">
     <Project Path="mcp/Clipwell.Mcp.csproj" />
   </Folder>
+  <Folder Name="/plugins/">
+    <Project Path="plugins/sample/Clipwell.SamplePlugin.csproj" />
+  </Folder>
   <Folder Name="/protocol/">
     <Project Path="protocol/Clipwell.Protocol.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Clipwell.Tests/Clipwell.Tests.csproj" />
   </Folder>
   <Folder Name="/ui/">
     <Project Path="ui/Clipwell.Ui.csproj" />

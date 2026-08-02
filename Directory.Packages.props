@@ -1,0 +1,47 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="Avalonia" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+    <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.0.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.0.0" />
+    <PackageVersion Include="System.Drawing.Common" Version="10.0.10" />
+  </ItemGroup>
+
+  <!-- Test-only packages. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+  </ItemGroup>
+
+  <!-- Transitive pins: the versions the direct packages resolve to on their own
+       carry advisories (Microsoft.OpenApi 2.0.0 GHSA-v5pm-xwqc-g5wc,
+       SQLitePCLRaw.lib.e_sqlite3 2.1.11 GHSA-2m69-gcr7-jv3q). The SQLitePCLRaw
+       wrapper packages version independently of the native lib package, which
+       tracks the bundled SQLite version. -->
+  <ItemGroup>
+    <!-- Held on 2.x: Microsoft.AspNetCore.OpenApi's XML-comment source generator
+         assigns IOpenApiMediaType.Example, which 3.x made read-only. 2.11.0 is
+         past the advisory's 2.7.5 fix. -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.11.0" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+    <PackageVersion Include="SQLitePCLRaw.core" Version="3.0.5" />
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
+    <PackageVersion Include="SQLitePCLRaw.provider.e_sqlite3" Version="3.0.5" />
+  </ItemGroup>
+
+</Project>
