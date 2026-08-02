@@ -7,9 +7,9 @@ use tauri::{AppHandle, Manager, WebviewWindow, WindowEvent};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 fn show_picker(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.show();
-        let _ = w.set_focus();
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
     }
 }
 
@@ -26,8 +26,8 @@ fn open_external(target: String) {
 /// Hide the picker, let focus return to the previous app, then synthesize paste.
 #[tauri::command]
 fn paste_and_hide(app: AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.hide();
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
     }
     std::thread::sleep(Duration::from_millis(120));
     if let Ok(mut enigo) = Enigo::new(&EnigoSettings::default()) {
@@ -42,32 +42,41 @@ fn paste_and_hide(app: AppHandle) {
 }
 
 /// Re-register the global hotkey from a chord string like "Alt+Shift+V".
+///
+/// The chord is parsed before anything is unregistered: an unrecognized chord
+/// leaves the working hotkey in place and reports the error, rather than
+/// silently leaving the user with no way to summon the picker.
 #[tauri::command]
-fn set_hotkey(app: AppHandle, chord: String) {
-    let gs = app.global_shortcut();
-    let _ = gs.unregister_all();
-    if let Some(sc) = parse_chord(&chord) {
-        let _ = gs.register(sc);
-    }
+fn set_hotkey(app: AppHandle, chord: String) -> Result<(), String> {
+    let shortcut = parse_chord(&chord).ok_or_else(|| format!("unrecognized hotkey chord: {chord}"))?;
+    let shortcuts = app.global_shortcut();
+    let _ = shortcuts.unregister_all();
+    shortcuts.register(shortcut).map_err(|error| error.to_string())
 }
 
-fn parse_chord(s: &str) -> Option<Shortcut> {
-    let mut mods = Modifiers::empty();
+/// Parses a chord like "Alt+Shift+V". Every segment must be a known modifier or
+/// key — an unrecognized one rejects the whole chord instead of being dropped.
+fn parse_chord(chord: &str) -> Option<Shortcut> {
+    let mut modifiers = Modifiers::empty();
     let mut code: Option<Code> = None;
-    for part in s.split('+') {
+    for part in chord.split('+') {
         match part.trim().to_ascii_lowercase().as_str() {
-            "alt" | "option" | "opt" => mods |= Modifiers::ALT,
-            "ctrl" | "control" => mods |= Modifiers::CONTROL,
-            "shift" => mods |= Modifiers::SHIFT,
-            "win" | "super" | "cmd" | "meta" => mods |= Modifiers::SUPER,
-            key => code = key_to_code(key),
+            "alt" | "option" | "opt" => modifiers |= Modifiers::ALT,
+            "ctrl" | "control" => modifiers |= Modifiers::CONTROL,
+            "shift" => modifiers |= Modifiers::SHIFT,
+            "win" | "super" | "cmd" | "meta" => modifiers |= Modifiers::SUPER,
+            key => match key_to_code(key) {
+                // A second key would mean an ambiguous chord like "V+B".
+                Some(parsed) if code.is_none() => code = Some(parsed),
+                _ => return None,
+            },
         }
     }
-    code.map(|c| Shortcut::new(Some(mods), c))
+    code.map(|key| Shortcut::new(Some(modifiers), key))
 }
 
-fn key_to_code(k: &str) -> Option<Code> {
-    Some(match k.to_ascii_uppercase().as_str() {
+fn key_to_code(key: &str) -> Option<Code> {
+    Some(match key.to_ascii_uppercase().as_str() {
         "A" => Code::KeyA, "B" => Code::KeyB, "C" => Code::KeyC, "D" => Code::KeyD,
         "E" => Code::KeyE, "F" => Code::KeyF, "G" => Code::KeyG, "H" => Code::KeyH,
         "I" => Code::KeyI, "J" => Code::KeyJ, "K" => Code::KeyK, "L" => Code::KeyL,
@@ -129,8 +138,8 @@ pub fn run() {
                 .build(app)?;
 
             // Default global hotkey (the frontend re-registers from settings via set_hotkey).
-            if let Some(sc) = parse_chord("Alt+Shift+V") {
-                let _ = app.global_shortcut().register(sc);
+            if let Some(shortcut) = parse_chord("Alt+Shift+V") {
+                let _ = app.global_shortcut().register(shortcut);
             }
 
             // Start hidden (the window is visible:false in tauri.conf). The picker is
@@ -140,12 +149,84 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             // Hide on blur (picker behavior). Disable with CLIPWELL_NO_AUTOHIDE.
-            if let WindowEvent::Focused(false) = event {
-                if std::env::var("CLIPWELL_NO_AUTOHIDE").is_err() {
-                    let _ = window.hide();
-                }
+            if let WindowEvent::Focused(false) = event
+                && std::env::var("CLIPWELL_NO_AUTOHIDE").is_err()
+            {
+                let _ = window.hide();
             }
         })
         .run(tauri::generate_context!())
         .expect("error while running Clipwell");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parsed(chord: &str) -> Shortcut {
+        parse_chord(chord).expect("chord should parse")
+    }
+
+    #[test]
+    fn parses_the_default_chord() {
+        let shortcut = parsed("Alt+Shift+V");
+        assert_eq!(shortcut.mods, Modifiers::ALT | Modifiers::SHIFT);
+        assert_eq!(shortcut.key, Code::KeyV);
+    }
+
+    #[test]
+    fn accepts_every_modifier_spelling() {
+        assert_eq!(parsed("option+v").mods, Modifiers::ALT);
+        assert_eq!(parsed("control+v").mods, Modifiers::CONTROL);
+        assert_eq!(parsed("cmd+v").mods, Modifiers::SUPER);
+        assert_eq!(parsed("super+v").mods, Modifiers::SUPER);
+    }
+
+    #[test]
+    fn is_case_and_whitespace_insensitive() {
+        assert_eq!(parsed("  ALT + shift + v  ").key, Code::KeyV);
+    }
+
+    #[test]
+    fn accepts_digit_and_function_keys() {
+        assert_eq!(parsed("Ctrl+1").key, Code::Digit1);
+        assert_eq!(parsed("Ctrl+F12").key, Code::F12);
+    }
+
+    #[test]
+    fn accepts_a_bare_key_with_no_modifiers() {
+        assert_eq!(parsed("F9").mods, Modifiers::empty());
+    }
+
+    #[test]
+    fn rejects_an_unknown_key_instead_of_dropping_it() {
+        // Dropping it would silently register a different hotkey than the one
+        // the user asked for.
+        assert!(parse_chord("Alt+Shift+Delete").is_none());
+    }
+
+    #[test]
+    fn rejects_a_trailing_separator() {
+        assert!(parse_chord("Alt+Shift+V+").is_none());
+    }
+
+    #[test]
+    fn rejects_a_chord_with_no_key() {
+        assert!(parse_chord("Alt+Shift").is_none());
+        assert!(parse_chord("").is_none());
+    }
+
+    #[test]
+    fn rejects_two_keys() {
+        assert!(parse_chord("Alt+V+B").is_none());
+    }
+
+    #[test]
+    fn unknown_key_does_not_clobber_an_earlier_valid_key() {
+        // The regression: the last segment used to overwrite `code` outright, so
+        // a trailing unknown segment turned a valid chord into no chord at all —
+        // and set_hotkey had already unregistered the working one by then.
+        assert!(parse_chord("Alt+V+Nonsense").is_none());
+        assert_eq!(parsed("Alt+V").key, Code::KeyV);
+    }
 }
