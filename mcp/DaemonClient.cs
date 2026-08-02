@@ -16,6 +16,8 @@ public sealed class DaemonClient
 
     private sealed record PageResponse(List<ClipItem> Items);
 
+    private sealed record ClearResponse(int Deleted);
+
     public async Task<IReadOnlyList<ClipItem>> GetPageAsync(int limit, string? before = null)
     {
         var url = before is null
@@ -25,16 +27,28 @@ public sealed class DaemonClient
         return page?.Items ?? [];
     }
 
-    public async Task<int> ClearAsync()
+    /// <summary>Searches the whole history server-side, not just the newest page.</summary>
+    public async Task<IReadOnlyList<ClipItem>> SearchAsync(string query, int limit)
     {
-        var res = await _http.PostAsync("/api/clipboard/clear", null);
-        res.EnsureSuccessStatusCode();
-        return 1;
+        var url = $"/api/clipboard/search?q={Uri.EscapeDataString(query)}&limit={limit}";
+        var page = await _http.GetFromJsonAsync<PageResponse>(url);
+        return page?.Items ?? [];
     }
 
-    public async Task<bool> DeleteAsync(string timestamp)
+    public async Task<ClipItem?> GetItemAsync(string timestamp)
     {
-        var res = await _http.PostAsJsonAsync("/api/clipboard/delete", new { timestamp });
-        return res.IsSuccessStatusCode;
+        using var response = await _http.GetAsync($"/api/clipboard/item/{Uri.EscapeDataString(timestamp)}");
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<ClipItem>();
+    }
+
+    /// <summary>Clears all history and returns how many rows the daemon deleted.</summary>
+    public async Task<int> ClearAsync()
+    {
+        using var response = await _http.PostAsync("/api/clipboard/clear", null);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<ClearResponse>();
+        return body?.Deleted ?? 0;
     }
 }

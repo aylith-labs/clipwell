@@ -4,7 +4,10 @@ using System.Text.Json;
 // Demonstrates that the daemon is fully driveable by any external process.
 
 var baseUrl = Environment.GetEnvironmentVariable("CLIPWELL_API") ?? "http://127.0.0.1:8787";
-var http = new HttpClient { BaseAddress = new Uri(baseUrl) };
+// No overall timeout: `watch` holds an SSE stream open indefinitely, and
+// HttpClient.Timeout would abort it mid-stream. Per-request deadlines are set
+// by the commands that need one.
+var http = new HttpClient { BaseAddress = new Uri(baseUrl), Timeout = Timeout.InfiniteTimeSpan };
 var command = args.Length > 0 ? args[0] : "help";
 
 try
@@ -32,10 +35,15 @@ catch (HttpRequestException ex)
     Console.Error.WriteLine("Is the daemon running?  dotnet run --project daemon");
     return 1;
 }
+catch (OperationCanceledException)
+{
+    return 0; // Ctrl+C during `watch`
+}
 
 static async Task ListAsync(HttpClient http, string[] args)
 {
-    var limit = args.Length > 1 && int.TryParse(args[1], out var n) ? n : 20;
+    var requested = args.Length > 1 && int.TryParse(args[1], out var parsed) ? parsed : 20;
+    var limit = Math.Clamp(requested, 1, 1000);
     using var doc = JsonDocument.Parse(await http.GetStringAsync($"/api/clipboard?limit={limit}"));
     var items = doc.RootElement.GetProperty("items");
     if (items.GetArrayLength() == 0)
@@ -45,11 +53,11 @@ static async Task ListAsync(HttpClient http, string[] args)
     }
     foreach (var item in items.EnumerateArray())
     {
-        var ts = item.GetProperty("timestamp").GetString();
-        var text = item.TryGetProperty("textContent", out var t) ? t.GetString() : null;
+        var timestamp = item.GetProperty("timestamp").GetString();
+        var text = item.TryGetProperty("textContent", out var textNode) ? textNode.GetString() : null;
         var preview = (text ?? "<non-text>").ReplaceLineEndings(" ");
         if (preview.Length > 70) preview = preview[..70] + "…";
-        Console.WriteLine($"{ts}  {preview}");
+        Console.WriteLine($"{timestamp}  {preview}");
     }
 }
 

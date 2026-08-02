@@ -3,19 +3,19 @@ using Clipwell.Protocol;
 namespace Clipwell.Daemon;
 
 /// <summary>
-/// Placeholder watcher for platforms without a native implementation yet
-/// (macOS / Linux land in a later phase). Keeps the daemon runnable everywhere:
-/// the REST/WS API and stored history work; only live capture is inert.
+/// Inert watcher: serves existing history but captures nothing. Used on an OS
+/// with no native implementation, and when CLIPWELL_NO_WATCH is set so the
+/// docs-capture scripts can't record the user's live clipboard.
 /// </summary>
 public sealed class NullClipboardWatcher : IClipboardWatcher
 {
-    public event Action<StoreRow>? Changed;
+    // No-op accessors: nothing is ever raised, so a handler is discarded rather
+    // than stored.
+    public event Action<StoreRow>? Changed { add { } remove { } }
 
-    public void Start()
-    {
-        // Reference the event so the compiler doesn't warn it is unused; no-op.
-        _ = Changed;
-    }
+    public event Action<string>? Failed { add { } remove { } }
+
+    public void Start() { }
 
     public void Dispose() { }
 }

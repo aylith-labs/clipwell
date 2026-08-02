@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using Clipwell.Daemon;
 using Clipwell.Daemon.Mcp;
-using Clipwell.Daemon.Windows;
 using Clipwell.Protocol;
 using Microsoft.Extensions.FileProviders;
 
@@ -28,8 +27,11 @@ builder.Services.AddCors(o => o.AddPolicy("webui", p => p
     .AllowAnyHeader()
     .AllowAnyMethod()));
 
-builder.Services.AddSingleton<MetadataStore>();
-builder.Services.AddSingleton<HistoryStore>();
+// One resolved data dir for the whole process: CLIPWELL_DATA_DIR, else the
+// per-OS app-data folder. Passed in explicitly rather than re-read per store.
+var dataDir = DataPaths.Resolve();
+builder.Services.AddSingleton(_ => new MetadataStore(dataDir));
+builder.Services.AddSingleton(sp => new HistoryStore(sp.GetRequiredService<MetadataStore>(), dataDir));
 builder.Services.AddSingleton<ClipboardHub>();
 builder.Services.AddSingleton<IClipboardWatcher>(sp =>
     ClipboardWatcherFactory.Create(sp.GetRequiredService<HistoryStore>().CacheDir));
@@ -86,8 +88,9 @@ app.Logger.LogInformation(
     Environment.GetEnvironmentVariable("CLIPWELL_DATA_DIR") ?? "(null)", store.DbPath);
 var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-if (OperatingSystem.IsWindows() && watcher is WindowsClipboardWatcher win)
-    win.Failed += msg => app.Logger.LogError("clipboard watcher init failed: {Message}", msg);
+watcher.Failed += message => app.Logger.LogError("clipboard watcher: {Message}", message);
+store.DetectorFailed += (detectorId, error) =>
+    app.Logger.LogError(error, "detector {DetectorId} threw while classifying; skipped", detectorId);
 
 // Capture pipeline: clipboard change → persist → broadcast to live subscribers.
 watcher.Changed += row =>
@@ -114,22 +117,33 @@ watcher.Start();
 // daemon that stays up for an hour actually sweeps. Set CLIPWELL_NO_SWEEP to
 // disable purging entirely (useful when pointed at a shared/real DB).
 var sweepDisabled = Environment.GetEnvironmentVariable("CLIPWELL_NO_SWEEP") is not null;
-_ = Task.Run(async () =>
+if (!sweepDisabled)
 {
-    while (!sweepDisabled)
+    var stopping = app.Lifetime.ApplicationStopping;
+    _ = Task.Run(async () =>
     {
-        await Task.Delay(TimeSpan.FromHours(1));
-        try
+        while (!stopping.IsCancellationRequested)
         {
-            var deleted = store.SweepOlderThan(store.LoadSettings().RetentionDays);
-            if (deleted > 0) app.Logger.LogInformation("retention sweep purged {Count} rows", deleted);
+            try
+            {
+                await Task.Delay(TimeSpan.FromHours(1), stopping);
+            }
+            catch (OperationCanceledException)
+            {
+                return; // shutting down
+            }
+            try
+            {
+                var deleted = store.SweepOlderThan(store.LoadSettings().RetentionDays);
+                if (deleted > 0) app.Logger.LogInformation("retention sweep purged {Count} rows", deleted);
+            }
+            catch (Exception ex)
+            {
+                app.Logger.LogError(ex, "retention sweep failed");
+            }
         }
-        catch (Exception ex)
-        {
-            app.Logger.LogError(ex, "retention sweep failed");
-        }
-    }
-});
+    });
+}
 
 app.Lifetime.ApplicationStopping.Register(() => watcher.Dispose());
 
@@ -150,18 +164,37 @@ app.MapGet("/api/clipboard/counts", (string? q) => Results.Ok(store.GetCounts(q)
     .WithName("GetCounts")
     .WithSummary("Aggregate counts (total, pinned, sensitive, per kind), optionally scoped to a search query `q`.");
 
+app.MapGet("/api/clipboard/search", (string? q, int? limit) =>
+{
+    if (string.IsNullOrWhiteSpace(q)) return Results.BadRequest(new { error = "q required" });
+    return Results.Ok(new { items = store.Search(q, Math.Clamp(limit ?? 50, 1, 1000)) });
+})
+    .WithName("SearchHistory")
+    .WithSummary("Search the whole history by text or alias (case-insensitive), newest first.");
+
+app.MapGet("/api/clipboard/item/{timestamp}", (string timestamp) =>
+    store.FindByTimestamp(timestamp) is { } item ? Results.Ok(item) : Results.NotFound())
+    .WithName("GetItem").WithSummary("Fetch a single history item by its exact timestamp.");
+
 app.MapGet("/api/clipboard/settings", () => Results.Ok(store.LoadSettings()))
     .WithName("GetSettings").WithSummary("Get daemon settings (retention).");
 
 app.MapPost("/api/clipboard/settings", (ClipboardSettings settings) =>
 {
+    // Reject an out-of-range retention rather than persisting a value LoadSettings
+    // will silently discard on the next read.
+    if (!ClipboardSettings.ValidRetentions.Contains(settings.RetentionDays))
+        return Results.BadRequest(new { error = "retentionDays must be 7, 30, 90, or null" });
     store.SaveSettings(settings);
     return Results.Ok(settings);
 })
     .WithName("SaveSettings").WithSummary("Update daemon settings (retention).");
 
 app.MapPost("/api/clipboard/delete", (DeleteRequest req) =>
-    Results.Ok(new { deleted = store.DeleteByTimestamp(req.Timestamp) }))
+{
+    if (string.IsNullOrEmpty(req.Timestamp)) return Results.BadRequest(new { error = "timestamp required" });
+    return Results.Ok(new { deleted = store.DeleteByTimestamp(req.Timestamp) });
+})
     .WithName("DeleteItem").WithSummary("Delete one history item by its timestamp.");
 
 app.MapPost("/api/clipboard/clear", () => Results.Ok(new { deleted = store.ClearAll() }))
@@ -227,7 +260,9 @@ app.MapPost("/api/clipboard/edit", (EditRequest req) =>
 app.MapGet("/api/clipboard/image/{timestamp}", (string timestamp) =>
 {
     var path = store.GetImagePath(timestamp);
-    return path is not null && File.Exists(path)
+    // Only ever serve out of the cache dir: image_path is data, and a history file
+    // carrying a path to somewhere else must not turn this into a file reader.
+    return path is not null && IsInside(store.CacheDir, path) && File.Exists(path)
         ? Results.File(path, "image/png")
         : Results.NotFound();
 })
@@ -296,8 +331,30 @@ static bool IsLocalOrigin(string origin)
 {
     if (origin is "tauri://localhost" or "http://tauri.localhost" or "https://tauri.localhost")
         return true;
-    return Uri.TryCreate(origin, UriKind.Absolute, out var u) && u.IsLoopback;
+    // The scheme check matters: Uri.IsLoopback is also true for file:// URIs, which
+    // would otherwise let any local HTML file read the whole clipboard history.
+    return Uri.TryCreate(origin, UriKind.Absolute, out var parsed)
+        && (parsed.Scheme == Uri.UriSchemeHttp || parsed.Scheme == Uri.UriSchemeHttps)
+        && parsed.IsLoopback;
 }
+
+// True when <paramref name="path"/> resolves to a file inside <paramref name="root"/>.
+static bool IsInside(string root, string path)
+{
+    try
+    {
+        var rootFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root))
+            + Path.DirectorySeparatorChar;
+        return Path.GetFullPath(path).StartsWith(rootFull, StringComparison.Ordinal);
+    }
+    catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+    {
+        return false;
+    }
+}
+
+/// <summary>Entry point marker so the test host can boot the real app via WebApplicationFactory.</summary>
+public partial class Program;
 
 internal sealed record SeedRequest(string? Timestamp, string? Text, bool HasImage, string? ImagePath, string? SourceApp);
 internal sealed record DeleteRequest(string Timestamp);

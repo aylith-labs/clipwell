@@ -19,22 +19,28 @@ public sealed class HistoryStore : IDisposable
     private readonly string _settingsPath;
     private readonly SqliteConnection _conn;
     private readonly Lock _gate = new();
-    // Built-in detectors + any loaded from plugins (CLIPWELL_PLUGINS_DIR).
-    private readonly DetectorRegistry _detectors =
-        new(Clipwell.Protocol.Plugins.PluginLoader.Load<Clipwell.Protocol.Plugins.IClipDetector>());
+    private readonly DetectorRegistry _detectors;
     private readonly MetadataStore _meta;
 
-    public HistoryStore(MetadataStore meta)
+    /// <summary>Raised with the detector id when a detector throws while classifying.</summary>
+    public event Action<string, Exception>? DetectorFailed;
+
+    /// <param name="meta">The pin/sensitive/alias/edit overlay.</param>
+    /// <param name="dataDir">Directory to store into; defaults to <see cref="DataPaths.Resolve"/>.</param>
+    /// <param name="detectors">
+    /// Extra detectors on top of the built-ins; defaults to whatever
+    /// <see cref="Clipwell.Protocol.Plugins.PluginLoader"/> finds in the plugins dir.
+    /// </param>
+    public HistoryStore(
+        MetadataStore meta,
+        string? dataDir = null,
+        IEnumerable<Clipwell.Protocol.Plugins.IClipDetector>? detectors = null)
     {
         _meta = meta;
-        // Default: %APPDATA%\Roaming\Clipwell on Windows; ~/.config/Clipwell on
-        // Linux; ~/Library/Application Support/Clipwell on macOS. Overridable via
-        // CLIPWELL_DATA_DIR so dev/test runs use an isolated DB instead of the
-        // user's real history.
-        var storeDir = Environment.GetEnvironmentVariable("CLIPWELL_DATA_DIR")
-            ?? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Clipwell");
+        _detectors = new DetectorRegistry(
+            detectors ?? Clipwell.Protocol.Plugins.PluginLoader.Load<Clipwell.Protocol.Plugins.IClipDetector>());
+        _detectors.Failed += (detectorId, error) => DetectorFailed?.Invoke(detectorId, error);
+        var storeDir = string.IsNullOrEmpty(dataDir) ? DataPaths.Resolve() : dataDir;
         Directory.CreateDirectory(storeDir);
         _dbPath = Path.Combine(storeDir, "history.db");
         _settingsPath = Path.Combine(storeDir, "clipboard-settings.json");
@@ -126,19 +132,60 @@ public sealed class HistoryStore : IDisposable
 
             var items = new List<ClipItem>();
             using var reader = cmd.ExecuteReader();
-            var index = 0;
             while (reader.Read())
             {
-                var item = Hydrate(RowToItem(reader, index));
+                var item = Hydrate(RowToItem(reader));
                 if (item.HasImage && reader["image_path"] is string imagePath &&
                     ImageSizeFor(imagePath) is (int width, int height))
                 {
                     item = item with { ImageWidth = width, ImageHeight = height };
                 }
                 items.Add(item);
-                index++;
             }
             return items;
+        }
+    }
+
+    /// <summary>
+    /// Full-history text search, newest first. Matches the item's text or its
+    /// alias, case-insensitively — the same rule the pickers and
+    /// <see cref="GetCounts"/> use. An empty query matches nothing rather than
+    /// everything, so a caller that forgets to validate can't dump the history.
+    /// </summary>
+    public IReadOnlyList<ClipItem> Search(string? query, int limit)
+    {
+        var needle = query?.Trim();
+        if (string.IsNullOrEmpty(needle) || limit <= 0) return [];
+
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM items ORDER BY timestamp DESC";
+            using var reader = cmd.ExecuteReader();
+
+            var matches = new List<ClipItem>();
+            while (reader.Read() && matches.Count < limit)
+            {
+                var item = ApplyEdit(RowToItem(reader));
+                if (!Matches(item, needle)) continue;
+                matches.Add(Classify(item));
+            }
+            return matches;
+        }
+    }
+
+    /// <summary>Looks up a single item by its exact timestamp, or null.</summary>
+    public ClipItem? FindByTimestamp(string timestamp)
+    {
+        if (string.IsNullOrEmpty(timestamp)) return null;
+
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM items WHERE timestamp = $ts LIMIT 1";
+            cmd.Parameters.AddWithValue("$ts", timestamp);
+            using var reader = cmd.ExecuteReader();
+            return reader.Read() ? Hydrate(RowToItem(reader)) : null;
         }
     }
 
@@ -149,7 +196,7 @@ public sealed class HistoryStore : IDisposable
     /// </summary>
     public ClipCounts GetCounts(string? query)
     {
-        var q = query?.Trim();
+        var needle = query?.Trim();
         lock (_gate)
         {
             using var cmd = _conn.CreateCommand();
@@ -160,71 +207,124 @@ public sealed class HistoryStore : IDisposable
             var kinds = new Dictionary<string, int>();
             while (reader.Read())
             {
-                var item = Hydrate(RowToItem(reader, 0));
-                if (!string.IsNullOrEmpty(q) &&
-                    !(item.TextContent?.Contains(q, StringComparison.OrdinalIgnoreCase) == true ||
-                      item.Alias?.Contains(q, StringComparison.OrdinalIgnoreCase) == true))
-                    continue;
+                // Classification runs a regex chain per row, so filter first and
+                // only classify the rows that survive the query.
+                var item = ApplyEdit(RowToItem(reader));
+                if (!string.IsNullOrEmpty(needle) && !Matches(item, needle)) continue;
                 total++;
-                if (item.IsUserPinned) pinned++;
-                if (item.IsSensitive) sensitive++;
-                var kind = item.Kind ?? "text";
+                if (_meta.IsPinned(item.Timestamp)) pinned++;
+                if (_meta.IsSensitive(item.Timestamp)) sensitive++;
+                var kind = _detectors.Classify(item);
                 kinds[kind] = kinds.GetValueOrDefault(kind) + 1;
             }
             return new ClipCounts { Total = total, Pinned = pinned, Sensitive = sensitive, Kinds = kinds };
         }
     }
 
+    /// <summary>The pickers' match rule: text or alias contains, case-insensitively.</summary>
+    private bool Matches(ClipItem item, string needle) =>
+        item.TextContent?.Contains(needle, StringComparison.OrdinalIgnoreCase) == true ||
+        _meta.Alias(item.Timestamp)?.Contains(needle, StringComparison.OrdinalIgnoreCase) == true;
+
     /// <summary>
-    /// Applies the user's edit override (replacing the text non-destructively)
-    /// and metadata, then classifies — so edited text re-detects its kind and a
-    /// stale HTML capture can't shadow the edit.
+    /// Replaces the text with the user's non-destructive edit override, if any.
+    /// The stale HTML capture is dropped so it can't shadow the edit.
     /// </summary>
-    private ClipItem Hydrate(ClipItem item)
-    {
-        if (_meta.Edit(item.Timestamp) is string edit)
-        {
-            item = item with
+    private ClipItem ApplyEdit(ClipItem item) =>
+        _meta.Edit(item.Timestamp) is string edit
+            ? item with
             {
                 TextContent = edit,
                 TextLength = edit.Length,
                 HtmlContent = null,
                 IsEdited = true,
-            };
-        }
-        return item with
-        {
-            Kind = _detectors.Classify(item),
-            IsUserPinned = _meta.IsPinned(item.Timestamp),
-            IsSensitive = _meta.IsSensitive(item.Timestamp),
-            Alias = _meta.Alias(item.Timestamp),
-        };
-    }
+            }
+            : item;
+
+    /// <summary>Attaches the detector kind and the user metadata flags.</summary>
+    private ClipItem Classify(ClipItem item) => item with
+    {
+        Kind = _detectors.Classify(item),
+        IsUserPinned = _meta.IsPinned(item.Timestamp),
+        IsSensitive = _meta.IsSensitive(item.Timestamp),
+        Alias = _meta.Alias(item.Timestamp),
+    };
+
+    /// <summary>
+    /// Applies the user's edit override then classifies — so edited text
+    /// re-detects its kind rather than keeping the original capture's.
+    /// </summary>
+    private ClipItem Hydrate(ClipItem item) => Classify(ApplyEdit(item));
 
     // ── Retention / clear ───────────────────────────────────────────────
 
+    /// <summary>
+    /// Deletes everything captured before the retention cutoff, except items the
+    /// user pinned — pinning is the documented way to keep something past
+    /// retention. A null retention means keep forever and deletes nothing.
+    /// </summary>
+    /// <remarks>
+    /// Compares parsed instants, not raw strings: rows written by this daemon use
+    /// <c>DateTimeOffset "o"</c> (<c>+00:00</c>) while rows inherited from the
+    /// legacy store use a <c>Z</c> suffix, and those two sort differently as text.
+    /// A row whose timestamp SQLite cannot parse yields NULL, which fails the
+    /// comparison and is therefore kept — the safe direction for a destructive
+    /// sweep.
+    /// </remarks>
     public int SweepOlderThan(int? retentionDays)
     {
-        if (retentionDays is null) return 0;
+        if (retentionDays is null || retentionDays.Value < 0) return 0;
         var cutoff = DateTimeOffset.UtcNow.AddDays(-retentionDays.Value).ToString("o");
         lock (_gate)
         {
-            using var cmd = _conn.CreateCommand();
-            cmd.CommandText = "DELETE FROM items WHERE timestamp < $cutoff";
-            cmd.Parameters.AddWithValue("$cutoff", cutoff);
-            var deleted = cmd.ExecuteNonQuery();
-            if (deleted > 0) Exec("PRAGMA optimize;");
-            return deleted;
+            var expired = new List<string>();
+            using (var select = _conn.CreateCommand())
+            {
+                select.CommandText =
+                    "SELECT timestamp FROM items WHERE strftime('%s', timestamp) < strftime('%s', $cutoff)";
+                select.Parameters.AddWithValue("$cutoff", cutoff);
+                using var reader = select.ExecuteReader();
+                while (reader.Read()) expired.Add(reader.GetString(0));
+            }
+
+            var pinned = _meta.PinnedTimestamps();
+            var doomed = expired.Where(timestamp => !pinned.Contains(timestamp)).ToList();
+            if (doomed.Count == 0) return 0;
+
+            using (var delete = _conn.CreateCommand())
+            {
+                delete.CommandText = "DELETE FROM items WHERE timestamp = $ts";
+                var parameter = delete.Parameters.Add("$ts", Microsoft.Data.Sqlite.SqliteType.Text);
+                using var tx = _conn.BeginTransaction();
+                delete.Transaction = tx;
+                foreach (var timestamp in doomed)
+                {
+                    parameter.Value = timestamp;
+                    delete.ExecuteNonQuery();
+                }
+                tx.Commit();
+            }
+
+            foreach (var timestamp in doomed) _meta.Forget(timestamp);
+            Exec("PRAGMA optimize;");
+            return doomed.Count;
         }
     }
 
+    /// <summary>
+    /// Deletes all history. Metadata goes with it — otherwise a later capture
+    /// landing on a purged item's timestamp would inherit its alias, pin, and
+    /// sensitive flag.
+    /// </summary>
     public int ClearAll()
     {
         lock (_gate)
         {
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = "DELETE FROM items";
-            return cmd.ExecuteNonQuery();
+            var deleted = cmd.ExecuteNonQuery();
+            _meta.Clear();
+            return deleted;
         }
     }
 
@@ -290,9 +390,9 @@ public sealed class HistoryStore : IDisposable
         cmd.ExecuteNonQuery();
     }
 
-    private static ClipItem RowToItem(SqliteDataReader r, int index)
+    private static ClipItem RowToItem(SqliteDataReader row)
     {
-        var formatsJson = r["formats_json"] as string;
+        var formatsJson = row["formats_json"] as string;
         IReadOnlyList<string> formats = [];
         if (!string.IsNullOrEmpty(formatsJson))
         {
@@ -300,7 +400,7 @@ public sealed class HistoryStore : IDisposable
             {
                 formats = JsonSerializer.Deserialize<List<string>>(formatsJson) ?? [];
             }
-            catch
+            catch (JsonException)
             {
                 // corrupt row — empty format list
             }
@@ -308,17 +408,19 @@ public sealed class HistoryStore : IDisposable
 
         return new ClipItem
         {
-            Id = $"db:{index}",
-            Timestamp = (string)r["timestamp"],
+            // The row's own primary key, so an item's id is stable across pages
+            // and across calls (a page-relative index is neither).
+            Id = $"db:{row["id"]}",
+            Timestamp = (string)row["timestamp"],
             Formats = formats,
-            TextContent = r["text_content"] as string,
-            TextLength = r["text_length"] is long len ? (int)len : 0,
-            HtmlContent = r["html_content"] as string,
-            HasImage = r["has_image"] is long hi && hi == 1,
+            TextContent = row["text_content"] as string,
+            TextLength = row["text_length"] is long length ? (int)length : 0,
+            HtmlContent = row["html_content"] as string,
+            HasImage = row["has_image"] is long hasImage && hasImage == 1,
             IsPinned = false,
             IsUserPinned = false,
             IsSensitive = false,
-            SourceApp = r["source_app"] as string ?? "",
+            SourceApp = row["source_app"] as string ?? "",
         };
     }
 

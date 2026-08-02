@@ -27,12 +27,8 @@ public sealed class ClipboardTools(DaemonClient daemon)
         [Description("Text to search for within clipboard items.")] string query,
         [Description("Maximum number of matches to return (1-200).")] int limit = 50)
     {
-        // Pull a generous window and filter locally; the daemon paginates by time.
-        var items = await daemon.GetPageAsync(500);
-        var matches = items
-            .Where(i => i.TextContent?.Contains(query, StringComparison.OrdinalIgnoreCase) == true)
-            .Take(Math.Clamp(limit, 1, 200))
-            .ToList();
+        if (string.IsNullOrWhiteSpace(query)) return "Provide a search query.";
+        var matches = await daemon.SearchAsync(query, Math.Clamp(limit, 1, 200));
         return matches.Count == 0 ? $"No clipboard items matching \"{query}\"." : Format(matches);
     }
 
@@ -41,8 +37,8 @@ public sealed class ClipboardTools(DaemonClient daemon)
     public async Task<string> GetText(
         [Description("The item's timestamp, e.g. 2026-06-14T01:23:45.6789012+00:00.")] string timestamp)
     {
-        var items = await daemon.GetPageAsync(500);
-        var item = items.FirstOrDefault(i => i.Timestamp == timestamp);
+        if (string.IsNullOrWhiteSpace(timestamp)) return "Provide an item timestamp.";
+        var item = await daemon.GetItemAsync(timestamp);
         if (item is null) return "No clipboard item with that timestamp.";
         return item.TextContent ?? (item.HasImage ? "(image item — no text)" : "(empty)");
     }
@@ -51,21 +47,21 @@ public sealed class ClipboardTools(DaemonClient daemon)
     [Description("Delete ALL clipboard history. This is irreversible.")]
     public async Task<string> Clear()
     {
-        await daemon.ClearAsync();
-        return "Clipboard history cleared.";
+        var deleted = await daemon.ClearAsync();
+        return $"Clipboard history cleared ({deleted} items).";
     }
 
     private static string Format(IReadOnlyList<ClipItem> items)
     {
-        var sb = new StringBuilder();
-        foreach (var i in items)
+        var builder = new StringBuilder();
+        foreach (var item in items)
         {
-            var preview = (i.TextContent ?? (i.HasImage ? "<image>" : "<empty>"))
+            var preview = (item.TextContent ?? (item.HasImage ? "<image>" : "<empty>"))
                 .ReplaceLineEndings(" ").Trim();
             if (preview.Length > 120) preview = preview[..120] + "…";
-            var src = string.IsNullOrEmpty(i.SourceApp) ? "" : $" [{i.SourceApp}]";
-            sb.AppendLine($"{i.Timestamp}{src}: {preview}");
+            var source = string.IsNullOrEmpty(item.SourceApp) ? "" : $" [{item.SourceApp}]";
+            builder.AppendLine($"{item.Timestamp}{source}: {preview}");
         }
-        return sb.ToString().TrimEnd();
+        return builder.ToString().TrimEnd();
     }
 }

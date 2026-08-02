@@ -28,10 +28,10 @@ public sealed class MetadataStore
         WriteIndented = true,
     };
 
-    public MetadataStore()
+    /// <param name="dataDir">Directory to persist into; defaults to <see cref="DataPaths.Resolve"/>.</param>
+    public MetadataStore(string? dataDir = null)
     {
-        var dir = Environment.GetEnvironmentVariable("CLIPWELL_DATA_DIR")
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Clipwell");
+        var dir = string.IsNullOrEmpty(dataDir) ? DataPaths.Resolve() : dataDir;
         Directory.CreateDirectory(dir);
         _path = Path.Combine(dir, "clipboard-meta.json");
         _model = Load();
@@ -43,16 +43,29 @@ public sealed class MetadataStore
         {
             return JsonSerializer.Deserialize<Model>(File.ReadAllText(_path), JsonOpts) ?? new Model();
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
+            // Missing or corrupt file → start empty.
             return new Model();
         }
     }
 
+    // Write to a sibling temp file and swap it in, so a crash or a full disk
+    // mid-write leaves the previous metadata intact instead of a truncated file
+    // that Load() would discard — losing every pin, alias, and edit.
     private void Save()
     {
-        try { File.WriteAllText(_path, JsonSerializer.Serialize(_model, JsonOpts)); }
-        catch { /* metadata persistence is best-effort */ }
+        var temp = _path + ".tmp";
+        try
+        {
+            File.WriteAllText(temp, JsonSerializer.Serialize(_model, JsonOpts));
+            File.Move(temp, _path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Metadata persistence is best-effort; the in-memory model stays valid.
+            try { File.Delete(temp); } catch (IOException) { }
+        }
     }
 
     public bool IsPinned(string ts) { lock (_gate) return _model.Pinned.Contains(ts); }
@@ -109,6 +122,25 @@ public sealed class MetadataStore
             var changed = _model.Pinned.Remove(ts) | _model.Sensitive.Remove(ts)
                 | _model.Aliases.Remove(ts) | _model.Edits.Remove(ts);
             if (changed) Save();
+        }
+    }
+
+    /// <summary>
+    /// Snapshot of the pinned timestamps. The retention sweep uses it to spare
+    /// pinned items.
+    /// </summary>
+    public IReadOnlySet<string> PinnedTimestamps()
+    {
+        lock (_gate) return _model.Pinned.ToHashSet();
+    }
+
+    /// <summary>Drop every stored pin, sensitive flag, alias, and edit.</summary>
+    public void Clear()
+    {
+        lock (_gate)
+        {
+            _model = new Model();
+            Save();
         }
     }
 }

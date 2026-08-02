@@ -32,25 +32,60 @@ public static class PluginLoader
     {
         dir ??= DefaultDir;
         var found = new List<T>();
-        if (!Directory.Exists(dir)) return found;
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return found;
 
-        foreach (var dll in Directory.GetFiles(dir, "*.dll"))
+        string[] dlls;
+        try
         {
+            dlls = Directory.GetFiles(dir, "*.dll");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return found;
+        }
+
+        foreach (var dll in dlls)
+        {
+            Assembly assembly;
             try
             {
-                var asm = Assembly.LoadFrom(dll);
-                foreach (var type in asm.GetTypes())
+                assembly = Assembly.LoadFrom(dll);
+            }
+            catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or IOException)
+            {
+                continue; // not a managed assembly, or unloadable
+            }
+
+            foreach (var type in TypesOf(assembly))
+            {
+                if (!typeof(T).IsAssignableFrom(type) || type.IsAbstract || type.IsInterface) continue;
+                if (type.GetConstructor(Type.EmptyTypes) is null) continue;
+                try
                 {
-                    if (!typeof(T).IsAssignableFrom(type) || type.IsAbstract || type.IsInterface) continue;
-                    if (type.GetConstructor(Type.EmptyTypes) is null) continue;
                     if (Activator.CreateInstance(type) is T instance) found.Add(instance);
                 }
-            }
-            catch
-            {
-                // Unloadable / incompatible plugin — skip it.
+                catch (Exception ex) when (ex is TargetInvocationException or MemberAccessException
+                    or TypeLoadException or MissingMethodException)
+                {
+                    // One bad type must not cost us the rest of the assembly.
+                }
             }
         }
         return found;
+    }
+
+    // A plugin built against a different dependency set can leave some of its
+    // types unresolvable; keep the ones that did load instead of dropping the
+    // whole assembly.
+    private static IEnumerable<Type> TypesOf(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.OfType<Type>();
+        }
     }
 }

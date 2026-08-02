@@ -29,10 +29,11 @@ public sealed class UnixPollingClipboardWatcher(UnixClipboardTool tool) : IClipb
 
     private CancellationTokenSource? _cts;
     private string? _last;
+    private bool _disposed;
 
     public void Start()
     {
-        if (_cts is not null) return;
+        if (_disposed || _cts is not null) return;
         _cts = new CancellationTokenSource();
         _ = Task.Run(() => PollLoopAsync(_cts.Token));
     }
@@ -90,11 +91,14 @@ public sealed class UnixPollingClipboardWatcher(UnixClipboardTool tool) : IClipb
         return Run("wl-paste", "--no-newline") ?? Run("xclip", "-selection clipboard -o");
     }
 
+    private static readonly TimeSpan ToolTimeout = TimeSpan.FromSeconds(2);
+
     private static string? Run(string file, string args)
     {
+        Process? proc = null;
         try
         {
-            using var proc = Process.Start(new ProcessStartInfo
+            proc = Process.Start(new ProcessStartInfo
             {
                 FileName = file,
                 Arguments = args,
@@ -104,16 +108,56 @@ public sealed class UnixPollingClipboardWatcher(UnixClipboardTool tool) : IClipb
                 CreateNoWindow = true,
             });
             if (proc is null) return null;
-            var output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(2000);
-            return proc.ExitCode == 0 ? output : null;
+
+            // Both pipes must be drained concurrently: a tool that fills the
+            // stderr buffer blocks forever while we sit reading stdout.
+            var stdout = proc.StandardOutput.ReadToEndAsync();
+            var stderr = proc.StandardError.ReadToEndAsync();
+            if (!proc.WaitForExit((int)ToolTimeout.TotalMilliseconds))
+            {
+                // A hung tool would otherwise be re-spawned every poll and never
+                // reaped, leaking a process and its handles each time.
+                TryKill(proc);
+                return null;
+            }
+            // Lets the async reads observe end-of-stream before the handle closes.
+            proc.WaitForExit();
+            stderr.GetAwaiter().GetResult();
+            return proc.ExitCode == 0 ? stdout.GetAwaiter().GetResult() : null;
         }
-        catch
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException
+            or IOException or ObjectDisposedException)
         {
-            // Tool not installed / not on PATH.
+            // Tool not installed / not on PATH, or it vanished mid-read.
+            if (proc is not null) TryKill(proc);
             return null;
+        }
+        finally
+        {
+            proc?.Dispose();
         }
     }
 
-    public void Dispose() => _cts?.Cancel();
+    private static void TryKill(Process proc)
+    {
+        try
+        {
+            if (!proc.HasExited) proc.Kill(entireProcessTree: true);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException
+            or System.ComponentModel.Win32Exception)
+        {
+            // Already gone, or we cannot signal it — nothing further to do.
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        var cts = _cts;
+        _cts = null;
+        if (cts is null) return;
+        cts.Cancel();
+        cts.Dispose();
+    }
 }
