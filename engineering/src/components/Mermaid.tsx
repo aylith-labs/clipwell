@@ -26,10 +26,13 @@ export function Mermaid({ chart }: { chart: string }) {
     };
   }, [chart, rawId]);
 
+  // Rendering a diagram means injecting the markup mermaid produced, so there is no
+  // variant of this that avoids the sink. What makes it safe is the input: charts are
+  // authored in this repo's MDX, and mermaid's default securityLevel "strict" runs its
+  // output through DOMPurify before returning it. Never render a chart from user input.
   return (
     <div
       className="my-4 flex justify-center overflow-x-auto rounded-lg border bg-fd-card p-4"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: mermaid output is trusted, authored in-repo
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );

@@ -41,6 +41,16 @@
   },
   "overrides": [
     {
+      "includes": ["src/components/Mermaid.tsx"],
+      "linter": {
+        "rules": {
+          "security": {
+            "noDangerouslySetInnerHtml": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["src/app/global.css"],
       "linter": {
         "rules": {
