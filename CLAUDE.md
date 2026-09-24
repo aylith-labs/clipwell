@@ -202,6 +202,12 @@ or behavior change:
    changed (`openapi/clipwell.v1.json`).
 A PR/commit that ships a feature without its docs + media is incomplete.
 
+The docs site also has a dated `/changelog` source-update page. The related
+Remotion film/poster project is in `media/changelog/`; it consumes hash-checked
+real light/dark captures and requires reviewed Cartesia narration before a film
+may be rendered or published. The current changelog player uses the existing
+silent light/dark usage clips and labels them accordingly.
+
 ## Profiling — HARD RULE (no regressions)
 Profile on **every milestone/extension** and compare to the recorded baseline before
 committing:

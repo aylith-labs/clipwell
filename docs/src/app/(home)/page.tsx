@@ -85,76 +85,107 @@ export default function HomePage() {
   return (
     <main className="flex flex-1 flex-col">
       {/* Hero */}
-      <section className="relative flex flex-col items-center px-6 pt-24 pb-16 text-center">
+      <section className="relative overflow-hidden px-6 pt-14 pb-20 sm:pt-20 lg:pt-10 lg:pb-12">
         <div
-          className="pointer-events-none absolute inset-0 -z-10 opacity-60"
+          className="pointer-events-none absolute inset-0 -z-10 opacity-50"
           style={{ background: glow }}
         />
-        <a
-          href={githubUrl}
-          className={cn(
-            "inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card px-3 py-1 text-xs font-medium text-fd-muted-foreground transition-colors hover:border-fd-muted-foreground/40 hover:text-fd-foreground",
-            focusRing,
-          )}
-        >
-          <span className="size-1.5 rounded-full bg-fd-primary" />
-          Open source
-          <span className="h-3 w-px bg-fd-border" />
-          MIT
-          <span className="h-3 w-px bg-fd-border" />
-          .NET 10 + Avalonia
-        </a>
-        <h1 className="mt-6 max-w-3xl text-balance text-5xl font-semibold tracking-tight sm:text-6xl md:text-7xl">
-          Your clipboard,
-          <br />
-          as an API.
-        </h1>
-        <p className="mt-6 max-w-xl text-balance text-lg text-fd-muted-foreground">
-          A cross-platform clipboard history built as a headless daemon with a
-          thin picker on top. The native picker, the web UI, the CLI, and AI
-          agents are all clients of the same public API.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/docs" className={cn(buttonPrimary, "group")}>
-            Read the docs
-            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />
-          </Link>
-          <a href={githubUrl} className={buttonSecondary}>
-            View on GitHub
-          </a>
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-12 lg:min-h-[min(640px,calc(100svh-10rem))] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.02fr)] lg:gap-16">
+          <div>
+            <a
+              href={githubUrl}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card px-3 py-1 text-xs font-medium text-fd-muted-foreground transition-colors hover:border-fd-muted-foreground/40 hover:text-fd-foreground",
+                focusRing,
+              )}
+            >
+              <span className="size-1.5 rounded-full bg-fd-primary" />
+              Open source
+              <span className="h-3 w-px bg-fd-border" />
+              MIT
+              <span className="h-3 w-px bg-fd-border" />
+              .NET 10 + Avalonia
+            </a>
+            <h1 className="mt-8 max-w-2xl text-balance text-5xl font-semibold leading-[1.06] tracking-tight sm:text-6xl xl:text-7xl">
+              Your clipboard,
+              <br />
+              in focus.
+            </h1>
+            <p className="mt-6 max-w-xl text-balance text-lg leading-relaxed text-fd-muted-foreground">
+              Find a copy in a few keystrokes. Keep it local. Let the native
+              picker, web UI, CLI, and AI tools work from the same clipboard
+              API.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/docs/install" className={cn(buttonPrimary, "group")}>
+                Get started
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />
+              </Link>
+              <Link href="/changelog" className={buttonSecondary}>
+                See what&apos;s new
+              </Link>
+            </div>
+            <p className="mt-7 text-xs font-medium uppercase tracking-[0.18em] text-fd-muted-foreground">
+              Local history <span className="mx-2 text-fd-primary">·</span>{" "}
+              Typed search <span className="mx-2 text-fd-primary">·</span> Open
+              API
+            </p>
+          </div>
+          <div className="relative mx-auto w-full max-w-[580px] lg:max-w-none">
+            <div className="absolute -inset-4 rounded-[2rem] bg-fd-primary/10 blur-3xl" />
+            <div className="relative overflow-hidden rounded-[1.4rem] border border-fd-border bg-fd-card p-2 shadow-2xl shadow-fd-primary/10">
+              <div className="flex items-center justify-between px-3 pb-2 pt-1 text-[0.65rem] font-medium uppercase tracking-[0.18em] text-fd-muted-foreground">
+                <span>Clipwell / picker</span>
+                <span>Live product capture</span>
+              </div>
+              <div className="aspect-[718/640] overflow-hidden rounded-xl border border-fd-border [mask-image:linear-gradient(to_bottom,black_80%,transparent)]">
+                <ThemedImage
+                  name="picker"
+                  alt="The Clipwell picker showing typed clipboard items, filter tabs, and an image thumbnail"
+                  width={718}
+                  height={847}
+                  priority
+                />
+              </div>
+            </div>
+            <div className="absolute -bottom-3 left-5 rounded-full border border-fd-border bg-fd-card px-4 py-2 text-xs font-semibold shadow-lg sm:-left-8">
+              Search the whole history
+            </div>
+            <div className="absolute -right-2 top-20 hidden rounded-full border border-fd-border bg-fd-card px-4 py-2 text-xs font-semibold shadow-lg sm:block">
+              Light and dark
+            </div>
+          </div>
         </div>
-        <div className="mt-10 w-full max-w-xl">
+      </section>
+
+      <section className="mx-auto w-full max-w-5xl px-6 pb-16">
+        <div className="grid items-center gap-6 rounded-2xl border border-fd-border bg-fd-card p-6 sm:p-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-widest text-fd-primary">
+              Start locally
+            </p>
+            <h2 className="mt-2 text-xl font-semibold">
+              One daemon, every client.
+            </h2>
+            <p className="mt-2 text-sm text-fd-muted-foreground">
+              Start the API, then summon the native picker. The same history is
+              available to the web UI, CLI, and MCP.
+            </p>
+          </div>
           <TerminalCard title="quickstart">
             <p>
               <span className="select-none pr-2 text-fd-muted-foreground">
                 $
               </span>
               dotnet run --project daemon
-              <span className="pl-2 text-fd-muted-foreground">
-                # clipboard API on :8787
-              </span>
             </p>
             <p>
               <span className="select-none pr-2 text-fd-muted-foreground">
                 $
               </span>
               dotnet run --project ui
-              <span className="pl-2 text-fd-muted-foreground">
-                # Alt+Shift+V to summon
-              </span>
             </p>
           </TerminalCard>
-        </div>
-        <div className="relative mt-10 w-full max-w-2xl rounded-2xl border border-fd-border bg-fd-card/60 p-2 shadow-xl">
-          <div className="aspect-[718/560] overflow-hidden rounded-xl [mask-image:linear-gradient(to_bottom,black_70%,transparent)]">
-            <ThemedImage
-              name="picker"
-              alt="The Clipwell picker showing typed clipboard items, filter tabs, and an image thumbnail"
-              width={718}
-              height={847}
-              priority
-            />
-          </div>
         </div>
       </section>
 

@@ -11,6 +11,10 @@ agents are all just clients of the same contract. Nothing is hidden behind a pri
 > (stdio + HTTP), a plugin host, and two docs sites all ship. See the ADRs under
 > `engineering/`.
 
+The [product updates](https://aylith-labs.github.io/clipwell/changelog) page pairs dated
+source changes with light and dark product captures. Film source and its
+review-gated narration workflow live in [`media/changelog/`](./media/changelog/).
+
 ## Why
 
 - **Queryable by anything** — REST for one-shot calls, WebSocket/SSE to live-stream clipboard

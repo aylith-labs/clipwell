@@ -1,0 +1,24 @@
+{
+  "name": "clipwell-changelog-film",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "compositions": "remotion compositions src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "prepare:assets": "bash prepare-assets.sh",
+    "narrate": "node generate-narration.mjs"
+  },
+  "dependencies": {
+    "@cartesia/cartesia-js": "4.2.0",
+    "@remotion/cli": "4.0.528",
+    "@remotion/google-fonts": "4.0.528",
+    "@remotion/media": "4.0.528",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "remotion": "4.0.528"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "typescript": "5.9.3"
+  }
+}

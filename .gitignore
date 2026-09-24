@@ -33,5 +33,9 @@ Thumbs.db
 *.db-shm
 *.log
 
+# Changelog film source assets and rendered candidates; published media lives on media.aylith.com.
+media/changelog/public/
+media/changelog/out/
+
 # Bench: keep baseline.json, ignore per-run output
 bench/last-run.json
