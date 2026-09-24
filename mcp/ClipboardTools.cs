@@ -40,6 +40,7 @@ public sealed class ClipboardTools(DaemonClient daemon)
         if (string.IsNullOrWhiteSpace(timestamp)) return "Provide an item timestamp.";
         var item = await daemon.GetItemAsync(timestamp);
         if (item is null) return "No clipboard item with that timestamp.";
+        if (item.IsSensitive) return "This clipboard item is marked sensitive.";
         return item.TextContent ?? (item.HasImage ? "(image item — no text)" : "(empty)");
     }
 

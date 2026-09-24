@@ -21,8 +21,8 @@ public sealed class DaemonClient
     public async Task<IReadOnlyList<ClipItem>> GetPageAsync(int limit, string? before = null)
     {
         var url = before is null
-            ? $"/api/clipboard?limit={limit}"
-            : $"/api/clipboard?limit={limit}&before={Uri.EscapeDataString(before)}";
+            ? $"/api/clipboard?limit={limit}&excludeSensitive=true"
+            : $"/api/clipboard?limit={limit}&excludeSensitive=true&before={Uri.EscapeDataString(before)}";
         var page = await _http.GetFromJsonAsync<PageResponse>(url);
         return page?.Items ?? [];
     }
@@ -30,7 +30,7 @@ public sealed class DaemonClient
     /// <summary>Searches the whole history server-side, not just the newest page.</summary>
     public async Task<IReadOnlyList<ClipItem>> SearchAsync(string query, int limit)
     {
-        var url = $"/api/clipboard/search?q={Uri.EscapeDataString(query)}&limit={limit}";
+        var url = $"/api/clipboard/search?q={Uri.EscapeDataString(query)}&limit={limit}&excludeSensitive=true";
         var page = await _http.GetFromJsonAsync<PageResponse>(url);
         return page?.Items ?? [];
     }

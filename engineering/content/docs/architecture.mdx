@@ -61,3 +61,11 @@ can be a stateless, pre‑warmed window that shows in single‑digit millisecond
 CLI and MCP server need no storage logic of their own, and the same history is
 available to anything on the machine. See [ADR‑0001](/docs/adr/0001-daemon-plus-thin-client-on-dotnet)
 and [ADR‑0003](/docs/adr/0003-multi-protocol-api).
+# Sensitive-item reads
+
+The picker uses the full local REST response so it can display and paste a
+flagged item. REST list and search also offer `excludeSensitive=true` for callers
+that must omit those items before result limits are applied. Both MCP transports
+use that filtered read path, and their get-text tools refuse flagged items.
+Aliases of flagged items are excluded with their content. This is an explicit
+MCP output rule; the local REST API remains a full history interface.

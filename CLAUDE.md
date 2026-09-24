@@ -46,6 +46,10 @@ Default port **8787**, override with `CLIPWELL_URL`. CLI base URL override:
 - `GET  /api/clipboard/search?q=&limit=` → `{ items }` — searches the **whole**
   history (text or alias, case-insensitive), not just the newest page. Blank `q`
   is a 400, never "return everything".
+- List and search accept `excludeSensitive=true`; filtering happens before
+  `limit`, including matches on aliases. MCP uses this mode and refuses
+  `clipboard_get_text` for flagged items. The regular REST view remains full
+  for trusted picker clients.
 - `GET  /api/clipboard/item/{timestamp}` → one item, or 404
 - `GET|POST /api/clipboard/settings` — POST rejects a `retentionDays` outside
   `ClipboardSettings.ValidRetentions` (7/30/90/null) with a 400 rather than

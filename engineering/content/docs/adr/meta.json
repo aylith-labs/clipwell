@@ -9,6 +9,7 @@
     "0006-plugin-host",
     "0007-web-view-client",
     "0008-design-tokens-and-lucide-icons",
-    "0009-edit-overlay-and-counts-endpoints"
+    "0009-edit-overlay-and-counts-endpoints",
+    "0010-sensitive-mcp-reads"
   ]
 }

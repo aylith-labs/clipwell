@@ -50,6 +50,13 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "excludeSensitive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -107,6 +114,13 @@
                 "string"
               ],
               "format": "int32"
+            }
+          },
+          {
+            "name": "excludeSensitive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],

@@ -49,5 +49,5 @@ Clipboard managers are everywhere, but they're dead ends — closed apps that ho
 - **Queryable by anything**: REST for one-shot calls, WebSocket/SSE to live-stream changes, and MCP so AI agents can read and act on your history.
 - **Two pickers, one daemon**: a native Avalonia picker and a Solid + Tauri web UI (also openable in any browser), both thin clients of the same API.
 - **Fast by design**: the picker is pre-warmed and shows in a single frame on the global hotkey.
-- **Local-first & private**: history lives in a local database on your machine; sensitive items are masked and never leave it.
+- **Local-first**: history lives in a local database on your machine. Flagged sensitive items are masked in the picker and omitted from MCP list and search tools; the full REST API remains available to local clients.
 - **Extensible**: typed detectors and content-aware actions load as plugins, so the set of item kinds and what you can do with them keeps growing.

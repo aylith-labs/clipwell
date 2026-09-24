@@ -63,12 +63,14 @@ The daemon exposes the same history three ways:
   `/image/{ts}`, `POST /delete`, `/clear`, `/pin`, `/sensitive`, `/rename`, `/edit`.
   Machine-readable spec at `GET /openapi/v1.json` (also checked in at
   [`openapi/clipwell.v1.json`](./openapi/clipwell.v1.json)).
+  List and search accept `excludeSensitive=true` for clients that must omit flagged items.
 - **Live** — `GET /api/clipboard/stream` (SSE) and `/api/clipboard/ws` (WebSocket)
   push a `clipboard.changed` event on every capture.
 - **MCP** — over HTTP/SSE in-daemon at `POST /mcp`, or the `mcp/` stdio server, both
   exposing `clipboard_recent`, `clipboard_search`, `clipboard_get_text`, and
   `clipboard_clear`. Point an MCP client at the `/mcp` URL or the built `Clipwell.Mcp`
   executable (`CLIPWELL_API`, default `http://127.0.0.1:8787`).
+  MCP list/search omit flagged sensitive items, and get-text refuses them.
 
 ## License
 

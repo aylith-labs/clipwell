@@ -22,6 +22,10 @@ curl "http://127.0.0.1:8787/api/clipboard/counts?q=github"
 # search the whole history by text or alias (not just the newest page)
 curl "http://127.0.0.1:8787/api/clipboard/search?q=github&limit=50"
 
+# omit items marked sensitive, including their text and aliases, before applying limit
+curl "http://127.0.0.1:8787/api/clipboard?limit=20&excludeSensitive=true"
+curl "http://127.0.0.1:8787/api/clipboard/search?q=github&excludeSensitive=true"
+
 # one item by its exact timestamp
 curl "http://127.0.0.1:8787/api/clipboard/item/2026-06-14T00:00:00Z"
 
@@ -81,6 +85,10 @@ point the client at the built `Clipwell.Mcp` executable:
 
 Both expose the identical tool surface; the HTTP one talks to the history store
 in-process, the stdio one proxies over REST.
+Both omit items marked sensitive from `clipboard_recent` and `clipboard_search`,
+including matches on a sensitive item's alias. `clipboard_get_text` refuses a
+sensitive item. REST still returns full history unless `excludeSensitive=true` is
+requested; trusted picker clients need the content to display and paste it.
 
 ## CLI
 

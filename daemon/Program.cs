@@ -152,9 +152,9 @@ app.Lifetime.ApplicationStopping.Register(() => watcher.Dispose());
 app.MapGet("/health", () => Results.Ok(new { status = "ok", db = store.DbPath, subscribers = hub.SubscriberCount }))
     .WithName("Health").WithSummary("Liveness probe and basic daemon info.");
 
-app.MapGet("/api/clipboard", (int? limit, string? before) =>
+app.MapGet("/api/clipboard", (int? limit, string? before, bool? excludeSensitive) =>
 {
-    var items = store.QueryPage(Math.Clamp(limit ?? 200, 1, 1000), before);
+    var items = store.QueryPage(Math.Clamp(limit ?? 200, 1, 1000), before, excludeSensitive == true);
     return Results.Ok(new { items });
 })
     .WithName("GetHistory")
@@ -164,10 +164,10 @@ app.MapGet("/api/clipboard/counts", (string? q) => Results.Ok(store.GetCounts(q)
     .WithName("GetCounts")
     .WithSummary("Aggregate counts (total, pinned, sensitive, per kind), optionally scoped to a search query `q`.");
 
-app.MapGet("/api/clipboard/search", (string? q, int? limit) =>
+app.MapGet("/api/clipboard/search", (string? q, int? limit, bool? excludeSensitive) =>
 {
     if (string.IsNullOrWhiteSpace(q)) return Results.BadRequest(new { error = "q required" });
-    return Results.Ok(new { items = store.Search(q, Math.Clamp(limit ?? 50, 1, 1000)) });
+    return Results.Ok(new { items = store.Search(q, Math.Clamp(limit ?? 50, 1, 1000), excludeSensitive == true) });
 })
     .WithName("SearchHistory")
     .WithSummary("Search the whole history by text or alias (case-insensitive), newest first.");

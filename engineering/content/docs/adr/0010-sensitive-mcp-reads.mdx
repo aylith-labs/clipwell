@@ -1,0 +1,25 @@
+---
+title: "ADR 0010: Omit flagged sensitive items from MCP reads"
+---
+
+# ADR 0010: Omit flagged sensitive items from MCP reads
+
+## Context
+
+Sensitive flags previously masked picker previews, while MCP list, search, and
+get-text tools could still return the original content. Search also matches
+aliases, which can themselves contain private information.
+
+## Decision
+
+MCP recent and search omit flagged items, including alias matches. Get-text
+refuses flagged items. The REST list and search endpoints accept an opt-in
+`excludeSensitive=true` parameter so the stdio MCP proxy and other callers can
+filter before their result limit. The pickers keep their full local REST view.
+
+## Consequences
+
+Flagging an item prevents its content and alias from appearing through MCP read
+tools. This does not make the local REST API a redacted interface; callers that
+need this behavior must request it explicitly. Timestamp collisions in legacy
+history remain a separate identity issue.

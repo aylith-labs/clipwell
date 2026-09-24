@@ -113,7 +113,7 @@ public sealed class HistoryStore : IDisposable
 
     // ── Read ────────────────────────────────────────────────────────────
 
-    public IReadOnlyList<ClipItem> QueryPage(int limit, string? beforeTimestamp)
+    public IReadOnlyList<ClipItem> QueryPage(int limit, string? beforeTimestamp, bool excludeSensitive = false)
     {
         lock (_gate)
         {
@@ -121,19 +121,23 @@ public sealed class HistoryStore : IDisposable
             if (beforeTimestamp is not null)
             {
                 cmd.CommandText =
-                    "SELECT * FROM items WHERE timestamp < $before ORDER BY timestamp DESC LIMIT $limit";
+                    "SELECT * FROM items WHERE timestamp < $before ORDER BY timestamp DESC" +
+                    (excludeSensitive ? "" : " LIMIT $limit");
                 cmd.Parameters.AddWithValue("$before", beforeTimestamp);
             }
             else
             {
-                cmd.CommandText = "SELECT * FROM items ORDER BY timestamp DESC LIMIT $limit";
+                cmd.CommandText = "SELECT * FROM items ORDER BY timestamp DESC" +
+                    (excludeSensitive ? "" : " LIMIT $limit");
             }
-            cmd.Parameters.AddWithValue("$limit", limit);
+            if (!excludeSensitive) cmd.Parameters.AddWithValue("$limit", limit);
 
             var items = new List<ClipItem>();
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
+                if (excludeSensitive && _meta.IsSensitive(reader.GetString(reader.GetOrdinal("timestamp"))))
+                    continue;
                 var item = Hydrate(RowToItem(reader));
                 if (item.HasImage && reader["image_path"] is string imagePath &&
                     ImageSizeFor(imagePath) is (int width, int height))
@@ -141,6 +145,7 @@ public sealed class HistoryStore : IDisposable
                     item = item with { ImageWidth = width, ImageHeight = height };
                 }
                 items.Add(item);
+                if (excludeSensitive && items.Count == limit) break;
             }
             return items;
         }
@@ -152,7 +157,7 @@ public sealed class HistoryStore : IDisposable
     /// <see cref="GetCounts"/> use. An empty query matches nothing rather than
     /// everything, so a caller that forgets to validate can't dump the history.
     /// </summary>
-    public IReadOnlyList<ClipItem> Search(string? query, int limit)
+    public IReadOnlyList<ClipItem> Search(string? query, int limit, bool excludeSensitive = false)
     {
         var needle = query?.Trim();
         if (string.IsNullOrEmpty(needle) || limit <= 0) return [];
@@ -166,6 +171,8 @@ public sealed class HistoryStore : IDisposable
             var matches = new List<ClipItem>();
             while (reader.Read() && matches.Count < limit)
             {
+                if (excludeSensitive && _meta.IsSensitive(reader.GetString(reader.GetOrdinal("timestamp"))))
+                    continue;
                 var item = ApplyEdit(RowToItem(reader));
                 if (!Matches(item, needle)) continue;
                 matches.Add(Classify(item));

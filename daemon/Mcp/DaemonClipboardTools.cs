@@ -18,7 +18,7 @@ public sealed class DaemonClipboardTools(HistoryStore store)
     [Description("List the most recent clipboard history items, newest first. Returns timestamp, kind, source app, and a text preview for each.")]
     public string Recent(
         [Description("Maximum number of items to return (1-200).")] int limit = 20)
-        => Format(store.QueryPage(Math.Clamp(limit, 1, 200), null));
+        => Format(store.QueryPage(Math.Clamp(limit, 1, 200), null, excludeSensitive: true));
 
     [McpServerTool(Name = "clipboard_search")]
     [Description("Search clipboard history for items whose text contains the query (case-insensitive). Returns matching items newest first.")]
@@ -27,7 +27,7 @@ public sealed class DaemonClipboardTools(HistoryStore store)
         [Description("Maximum number of matches to return (1-200).")] int limit = 50)
     {
         if (string.IsNullOrWhiteSpace(query)) return "Provide a search query.";
-        var matches = store.Search(query, Math.Clamp(limit, 1, 200));
+        var matches = store.Search(query, Math.Clamp(limit, 1, 200), excludeSensitive: true);
         return matches.Count == 0 ? $"No clipboard items matching \"{query}\"." : Format(matches);
     }
 
@@ -39,6 +39,7 @@ public sealed class DaemonClipboardTools(HistoryStore store)
         if (string.IsNullOrWhiteSpace(timestamp)) return "Provide an item timestamp.";
         var item = store.FindByTimestamp(timestamp);
         if (item is null) return "No clipboard item with that timestamp.";
+        if (item.IsSensitive) return "This clipboard item is marked sensitive.";
         return item.TextContent ?? (item.HasImage ? "(image item — no text)" : "(empty)");
     }
 

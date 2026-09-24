@@ -106,6 +106,40 @@ public sealed class DaemonApiTests(DaemonFixture fixture)
         Assert.Equal("newer", items[0].GetProperty("textContent").GetString());
     }
 
+    [Fact]
+    public async Task GetHistory_ExcludeSensitiveOmitsContentAndAliasBeforeLimit()
+    {
+        using var client = Client();
+        await ResetAsync(client);
+        await SeedAsync(client, "public snippet", minutesAgo: 2);
+        var secret = await SeedAsync(client, "synthetic secret", minutesAgo: 1);
+        (await client.PostAsJsonAsync("/api/clipboard/rename", new { timestamp = secret, alias = "private alias" }, TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/api/clipboard/sensitive", new { timestamp = secret, sensitive = true }, TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
+
+        var filtered = await JsonAsync(await client.GetAsync("/api/clipboard?limit=1&excludeSensitive=true", TestContext.Current.CancellationToken));
+        var normal = await JsonAsync(await client.GetAsync("/api/clipboard?limit=1", TestContext.Current.CancellationToken));
+
+        Assert.Equal("public snippet", filtered.GetProperty("items")[0].GetProperty("textContent").GetString());
+        Assert.Equal("private alias", normal.GetProperty("items")[0].GetProperty("alias").GetString());
+    }
+
+    [Fact]
+    public async Task Search_ExcludeSensitiveSkipsAliasMatchesAndFillsLimit()
+    {
+        using var client = Client();
+        await ResetAsync(client);
+        await SeedAsync(client, "public needle", minutesAgo: 2);
+        var secret = await SeedAsync(client, "synthetic needle", minutesAgo: 1);
+        (await client.PostAsJsonAsync("/api/clipboard/rename", new { timestamp = secret, alias = "needle alias" }, TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/api/clipboard/sensitive", new { timestamp = secret, sensitive = true }, TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
+
+        var filtered = await JsonAsync(await client.GetAsync("/api/clipboard/search?q=needle&limit=1&excludeSensitive=true", TestContext.Current.CancellationToken));
+        var aliasOnly = await JsonAsync(await client.GetAsync("/api/clipboard/search?q=alias&excludeSensitive=true", TestContext.Current.CancellationToken));
+
+        Assert.Equal("public needle", filtered.GetProperty("items")[0].GetProperty("textContent").GetString());
+        Assert.Empty(aliasOnly.GetProperty("items").EnumerateArray());
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-5)]
