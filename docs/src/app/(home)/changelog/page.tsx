@@ -11,6 +11,7 @@ import Link from "next/link";
 import { FeatureFilm } from "@/components/changelog/feature-film";
 import { buttonSecondary } from "@/components/landing/primitives";
 import { ThemedImage } from "@/components/landing/themed-image";
+import { ThemedClip } from "@/components/themed-clip";
 
 export const metadata: Metadata = {
   title: "What's new in Clipwell",
@@ -99,6 +100,37 @@ export default function ChangelogPage() {
             The change covers the daemon&apos;s HTTP MCP endpoint and the
             separate stdio MCP server. It does not hide sensitive items from
             trusted local REST picker clients.
+          </p>
+          <p className="mt-5 text-sm leading-relaxed text-fd-muted-foreground">
+            This source-run study uses the actual browser-served web picker with
+            seven fictional items in an isolated database and clipboard watching
+            disabled. It is not footage of the native Windows picker or a real
+            clipboard. The masked row is visible in the trusted picker; the MCP
+            boundary described above comes from the source change, not a mocked
+            agent response.
+          </p>
+          <figure className="mt-7 overflow-hidden rounded-xl border border-fd-border bg-fd-secondary">
+            <ThemedImage
+              name="i17-2026-09-25-db2d650/poster-draft"
+              alt="Annotated Clipwell web picker showing a masked synthetic row and the source-backed MCP boundary"
+              width={1600}
+              height={900}
+            />
+            <figcaption className="px-4 py-3 text-sm text-fd-muted-foreground">
+              Paired poster study from real web-picker pixels and a fictional
+              fixture. The MCP result is source-backed, not simulated on screen.
+            </figcaption>
+          </figure>
+          <ThemedClip
+            name="i17-2026-09-25-db2d650/picker-search"
+            poster="i17-2026-09-25-db2d650/picker-overview"
+            width={1024}
+            height={800}
+            caption="Real, silent web-picker filtering footage in light and dark. It is source footage, not a narrated Cartesia/Remotion release film."
+          />
+          <p className="text-sm text-fd-muted-foreground">
+            The final narrated films, timed captions, and listening review are
+            still in production. Trusted local REST access remains available.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <a
