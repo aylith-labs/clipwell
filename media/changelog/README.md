@@ -11,6 +11,15 @@ privacy boundary added in source commit `d14aa3a`. On-screen annotation cards
 identify what is shown. `ClipwellPosterLight` and `ClipwellPosterDark` are separately
 art-directed stills, not arbitrary frames. Both themes share one narration.
 
+This is a **candidate** composition using the older picker/usage captures.
+The reviewed September 25 source-run web-picker images and silent footage are
+published under `media/clipwell/media/i17-2026-09-25-db2d650/` with exact
+hashes in its media manifest. Before a final film render, retarget the
+composition to those current product pixels and review annotation placement in
+both themes; the older boundary highlight must not be presented as proof of a
+new MCP response. The existing paired poster drafts are source-run covers,
+not frames from a finished narrated film.
+
 ```
 npm ci
 npm run prepare:assets
@@ -25,6 +34,13 @@ process environment); the script never logs the key. It makes a paid external
 TTS call and saves `public/narration.wav`. Listen to the
 result and check it fits the 12-second cut. The script intentionally refuses to
 make a call without both values. No key, voice, or narration audio is committed.
+`captions-draft.vtt` maps the approved wording to the three 12-second acts but
+is **not synchronized** to a voice performance. Re-time it against the actual
+reviewed WAV, as Dashcam did with editorial VTT timing, and mux/extract-check
+captions in both final MP4s. Dashcam's localhost one-shot voice handoff can be
+reused without copying or logging its secret; the missing inputs here are a
+fresh key and a selected/reviewed Clipwell voice. Do not run the TTS request
+until those inputs exist.
 
 After review and resource coordination, render with the Remotion CLI:
 

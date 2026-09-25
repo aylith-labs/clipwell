@@ -65,6 +65,28 @@ All assets, exact hashes, source/fixture provenance, poster HTML, and a
 storyboard are durable on the isolated `aylith-media` review branch
 `i17-clipwell-web-picker-media` at `9d883aceb91e95dacb3b77c22231d1b67024671d`,
 under `media/clipwell/media/i17-2026-09-25-db2d650/`. The media pair gate passed:
-211 files, 81 matched themed pairs. The branch is not merged or hosted; final
-poster and video reviews, Cartesia narration, Remotion film and captions remain
-open.
+211 files, 81 matched themed pairs. Independent visual/truth review passed.
+The branch was fast-forwarded to `aylith-media` main `e4c00e2`, and hosted
+publish run `36096096605` succeeded. All eight public PNG/WebM assets returned
+200 with exact manifest byte lengths, SHA-256 hashes and MIME types; hosted VP8
+clips decode at 1024×800 for 5.32 s light and 4.96 s dark. They are authentic,
+silent browser-picker source clips, not native Windows or MCP-response pixels.
+
+Clipwell main `3734323` added the source-owned docs changelog entry; CI
+`36096525231` and docs deploy `36096525164` succeeded. Aylith.com main
+`7d7b0a3` added the central entry; Pages `36096532207` succeeded. Both show
+paired source-run media with a seven-row fictional-fixture label, separate the
+September 25 study from the September 24 product update, and state the
+MCP-versus-trusted-REST boundary. Final Cartesia narration, Remotion light/dark
+films, timed captions and film review remain open. Dashcam's completed narrated
+films are a separate release, not Clipwell audio evidence.
+
+The non-secret film handoff was compared with Dashcam's completed pipeline.
+Clipwell's existing Remotion candidate still points at older picker/usage
+captures and needs a visual retarget to this reviewed September 25 footage.
+`media/changelog/generate-narration.mjs` now uses precise MCP omit/refuse
+wording; `captions-draft.vtt` has provisional 12-second act cues. The draft is
+not synchronized to audio. The remaining secret-dependent step is a fresh
+Cartesia key plus a selected/reviewed voice for one WAV generation; then listen,
+time captions to that performance, render both themes, inspect annotations,
+mux/check subtitles, hash and publish only reviewed final films.

@@ -17,7 +17,7 @@ if (
 
 // Keep this text aligned with the three acts in src/story.tsx. Listen and review
 // the resulting file before rendering or publishing either themed video.
-const transcript = "Your picker keeps the full history. Find a copy, then flag it sensitive. Agent tools omit flagged items from recent, search, and direct reads.";
+const transcript = "Your picker keeps the full history. Find a copy as you type. Flag it sensitive: MCP recent and search omit it; direct MCP text reads refuse it.";
 const client = new Cartesia({ token });
 let response;
 try {
