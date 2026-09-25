@@ -289,6 +289,14 @@ export function Film({ theme }: { theme: Theme }) {
 		extrapolateLeft: "clamp",
 		extrapolateRight: "clamp",
 	});
+	const boundaryReveal = interpolate(frame, [210, 235], [0, 1], {
+		extrapolateLeft: "clamp",
+		extrapolateRight: "clamp",
+	});
+	const boundaryFocus = interpolate(frame, [235, 255], [0, 1], {
+		extrapolateLeft: "clamp",
+		extrapolateRight: "clamp",
+	});
 	return (
 		<Background theme={theme}>
 			<div
@@ -401,7 +409,7 @@ export function Film({ theme }: { theme: Theme }) {
 				</div>
 			</Sequence>
 			<Sequence from={210} durationInFrames={150}>
-				<div style={{ position: "absolute", left: 110, top: 275, width: 1140 }}>
+				<div style={{ position: "absolute", left: 110, top: 275, width: 760 }}>
 					<div
 						style={{
 							color: p.accent,
@@ -430,10 +438,44 @@ export function Film({ theme }: { theme: Theme }) {
 						reads.
 					</p>
 				</div>
-				<div style={{ position: "absolute", right: 125, bottom: 180 }}>
+				<div
+					style={{
+						position: "absolute",
+						right: 120,
+						top: 175,
+						width: 680,
+						height: 710,
+						border: `2px solid ${p.line}`,
+						borderRadius: 26,
+						overflow: "hidden",
+						background: p.card,
+						boxShadow: "0 40px 90px #0003",
+						opacity: boundaryReveal,
+						transform: `translateY(${(1 - boundaryReveal) * 30}px)`,
+					}}
+				>
+					<Img
+						src={staticFile(`picker-${theme}.png`)}
+						style={{ width: "100%" }}
+					/>
+					<div
+						style={{
+							position: "absolute",
+							left: 36,
+							right: 36,
+							top: 379,
+							height: 62,
+							border: `4px solid ${p.accent}`,
+							borderRadius: 15,
+							boxShadow: `0 0 0 8px ${p.ground}bb`,
+							opacity: boundaryFocus,
+						}}
+					/>
+				</div>
+				<div style={{ position: "absolute", right: 125, bottom: 100 }}>
 					<Pill
 						theme={theme}
-						text="LOCAL-FIRST · API-READY"
+						text="SENSITIVE IN PICKER  ↖"
 						style={{ borderColor: p.accent, color: p.accent }}
 					/>
 				</div>

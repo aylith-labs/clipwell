@@ -19,8 +19,10 @@ npm run compositions
 ```
 
 For narration, choose and review a [Cartesia voice](https://docs.cartesia.ai/)
-and set `CARTESIA_API_KEY` and `CARTESIA_VOICE_ID`. Only then run `npm run narrate`;
-it makes a paid external TTS call and saves `public/narration.wav`. Listen to the
+and set `CARTESIA_VOICE_ID`. Pass the API key through stdin with
+`npm run narrate -- --stdin-key` (or through a protected `CARTESIA_API_KEY`
+process environment); the script never logs the key. It makes a paid external
+TTS call and saves `public/narration.wav`. Listen to the
 result and check it fits the 12-second cut. The script intentionally refuses to
 make a call without both values. No key, voice, or narration audio is committed.
 
