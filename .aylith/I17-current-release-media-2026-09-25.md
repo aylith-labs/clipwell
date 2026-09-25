@@ -36,7 +36,8 @@ independent visual/truth review before main or publication.
 
 ## Remaining gates
 
-- Reserve a bounded build/browser capture slot; stop daemon/browser afterward.
+- Independent visual/truth review of the source-run capture candidates before
+  merging or publishing them.
 - Review a licensed Cartesia voice, generate and listen to the narration; no
   credential is persistently available, so no paid call or finished audio is
   claimed here.
@@ -44,3 +45,26 @@ independent visual/truth review before main or publication.
   annotations, including the actual sensitive-row/MCP boundary.
 - Verify media-host bytes and SHA-256 before linking new assets from either
   changelog. Current silent clips remain labeled silent until replacement.
+
+## Source-run capture receipt
+
+The bounded Linux capture used an official isolated .NET SDK 10.0.401 under
+`/var/tmp`, not a system install. The daemon Release build passed with zero
+warnings/errors and the frozen Bun web-picker install/build passed. With the
+watcher and sweep disabled, seven fictional rows were seeded in an isolated
+database; one was flagged sensitive through the normal API and one pinned.
+The actual browser-served `/app` picker produced matched 1024×800 light/dark
+overview and `SAMPLE-ONLY` sensitive-search PNGs, plus paired silent VP8/WebM
+filtering footage (5.32 s light, 4.96 s dark). These are source clips, not the
+finished 12-second narrated film. Two 1600×900 draft posters compose real
+overview pixels with precise MCP-vs-picker annotations and an explicit
+synthetic-fixture label. The daemon and browser were stopped after capture;
+the real clipboard was not read.
+
+All assets, exact hashes, source/fixture provenance, poster HTML, and a
+storyboard are durable on the isolated `aylith-media` review branch
+`i17-clipwell-web-picker-media` at `9d883aceb91e95dacb3b77c22231d1b67024671d`,
+under `media/clipwell/media/i17-2026-09-25-db2d650/`. The media pair gate passed:
+211 files, 81 matched themed pairs. The branch is not merged or hosted; final
+poster and video reviews, Cartesia narration, Remotion film and captions remain
+open.
