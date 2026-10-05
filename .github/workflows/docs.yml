@@ -7,6 +7,7 @@ on:
       - 'docs/**'
       - 'engineering/**'
       - '.github/workflows/docs.yml'
+      - 'scripts/pages-target.py'
   workflow_dispatch:
 
 permissions:
@@ -43,6 +44,8 @@ jobs:
         run: npm run lint
 
   build:
+    outputs:
+      base: ${{ steps.target.outputs.base }}
     needs: verify
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
@@ -51,10 +54,18 @@ jobs:
         with:
           node-version: 24
 
+      - name: Select exact current Pages binding
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/aylith-labs/clipwell/pages > /tmp/clipwell-pages.json
+          python3 scripts/pages-target.py /tmp/clipwell-pages.json
+
       - name: Build feature docs (site root)
         working-directory: docs
         env:
-          PAGES_BASE: /clipwell
+          PAGES_BASE: ${{ steps.target.outputs.base }}
         run: |
           npm ci
           npm run build
@@ -62,7 +73,7 @@ jobs:
       - name: Build engineering docs (/engineering)
         working-directory: engineering
         env:
-          PAGES_BASE: /clipwell/engineering
+          PAGES_BASE: ${{ steps.target.outputs.base }}/engineering
         run: |
           npm ci
           npm run build
@@ -71,6 +82,8 @@ jobs:
         run: |
           mkdir -p _site
           cp -r docs/out/* _site/
+          mkdir -p _site/home
+          cp docs/out/home.html _site/home/index.html
           mkdir -p _site/engineering
           cp -r engineering/out/* _site/engineering/
           touch _site/.nojekyll
@@ -86,5 +99,15 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Recheck unchanged Pages binding before deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_BASE: ${{ needs.build.outputs.base }}
+        run: |
+          gh api repos/aylith-labs/clipwell/pages > /tmp/clipwell-pages-deploy.json
+          python3 scripts/pages-target.py /tmp/clipwell-pages-deploy.json --expected-base "$EXPECTED_BASE"
       - id: deployment
         uses: actions/deploy-pages@v5

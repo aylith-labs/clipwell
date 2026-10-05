@@ -1,6 +1,19 @@
+import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Provider } from "@/components/provider";
 import "./global.css";
+
+const base = process.env.PAGES_BASE || "";
+const origin = base.startsWith("/clipwell")
+  ? "https://aylith-labs.github.io"
+  : "https://clipwell.aylith.com";
+
+export const metadata: Metadata = {
+  title: "Clipwell engineering",
+  description:
+    "Architecture, implementation notes, and decisions behind Clipwell.",
+  metadataBase: new URL(`${origin}${base}/`),
+};
 
 const inter = Inter({
   subsets: ["latin"],

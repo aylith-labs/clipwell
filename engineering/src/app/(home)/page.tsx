@@ -68,7 +68,13 @@ export default function HomePage() {
             Read the docs
             <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />
           </Link>
-          <a href="/clipwell" className={buttonSecondary}>
+          <a
+            href={
+              (process.env.PAGES_BASE || "").replace(/\/engineering$/, "") ||
+              "/"
+            }
+            className={buttonSecondary}
+          >
             Product docs
           </a>
         </div>

@@ -45,3 +45,5 @@ resources:
   features and API.
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 - [Fumadocs](https://fumadocs.dev) - learn about Fumadocs
+
+The always-public `/home` route reuses the complete root homepage. The Pages publisher selects the exact existing prefix or `clipwell.aylith.com` binding and rechecks it before deployment; engineering docs use the same selected base. Static documentation has no signed-in application root.
