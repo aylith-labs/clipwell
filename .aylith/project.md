@@ -6,6 +6,10 @@ description: >-
   any app can query, listen to, and drive — with native and web pickers, a
   global hotkey, MCP, and a plugin system.
 category: developer-tools
+websiteUrl: https://clipwell.aylith.com/
+onboarding:
+  access: public-source
+  url: https://clipwell.aylith.com/docs/install
 features:
   - 'Typed history (links, code, colors, paths, images) with instant search'
   - 'Single-digit-millisecond picker on a global hotkey, native and web'
