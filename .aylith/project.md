@@ -10,6 +10,13 @@ websiteUrl: https://clipwell.aylith.com/
 onboarding:
   access: public-source
   url: https://clipwell.aylith.com/docs/install
+  prerequisites:
+    - .NET 10 SDK to build and run the daemon and native picker from source
+    - wl-clipboard on Wayland or xclip on X11 for Linux clipboard polling
+  limitations:
+    - macOS paste-back requires Accessibility permission
+    - Pure Wayland uses the tray instead of a global hotkey; X11 paste-back requires xdotool
+    - Native clipboard, hotkeys and paste-back depend on platform permissions and the desktop session
 features:
   - 'Typed history (links, code, colors, paths, images) with instant search'
   - 'Single-digit-millisecond picker on a global hotkey, native and web'
