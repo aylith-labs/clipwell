@@ -4,10 +4,16 @@ on:
   push:
     branches: [main]
     paths:
+      - 'assets/fonts/**'
       - 'docs/**'
       - 'engineering/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
+    inputs:
+      custom_domain_preflight:
+        description: Build root-domain artifacts for review without publishing
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -54,7 +60,8 @@ jobs:
       - name: Build feature docs (site root)
         working-directory: docs
         env:
-          PAGES_BASE: /clipwell
+          # Activate only after both root-mode artifacts pass review and Pages is bound.
+          PAGES_BASE: ${{ (inputs.custom_domain_preflight || vars.PAGES_CUSTOM_DOMAIN == 'clipwell.aylith.com') && '/' || '/clipwell' }}
         run: |
           npm ci
           npm run build
@@ -62,7 +69,7 @@ jobs:
       - name: Build engineering docs (/engineering)
         working-directory: engineering
         env:
-          PAGES_BASE: /clipwell/engineering
+          PAGES_BASE: ${{ (inputs.custom_domain_preflight || vars.PAGES_CUSTOM_DOMAIN == 'clipwell.aylith.com') && '/engineering' || '/clipwell/engineering' }}
         run: |
           npm ci
           npm run build
@@ -80,6 +87,7 @@ jobs:
           path: _site
 
   deploy:
+    if: ${{ !inputs.custom_domain_preflight }}
     needs: build
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     environment:

@@ -365,7 +365,7 @@ export default function HomePage() {
               Install Clipwell
             </Link>
             <a
-              href="/clipwell/engineering"
+              href={`${process.env.NEXT_PUBLIC_PAGES_BASE || ""}/engineering/`}
               className={cn(buttonSecondary, "group")}
             >
               Engineering docs
