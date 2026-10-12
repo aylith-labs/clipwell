@@ -1,0 +1,35 @@
+---
+title: "ADR 0011: Portable Linux package with a bundled runtime"
+---
+
+# ADR 0011: Portable Linux package with a bundled runtime
+
+## Context
+
+Installing Clipwell meant cloning the repository and building with the .NET 10
+SDK. People who only want to use it should not need a compiler or a system-wide
+.NET install.
+
+## Decision
+
+`scripts/package-portable.py` publishes the daemon, Avalonia picker, CLI and
+stdio MCP server as framework-dependent `linux-x64` apps and ships one copy of
+the .NET and ASP.NET Core runtime beside them, taken from the SDK that built
+them. Launchers in `bin/` run each app on that runtime. The compiled web UI goes
+to `daemon/wwwroot/app`, where the daemon already looks for it. Four
+self-contained apps would each carry their own runtime; sharing one keeps the
+archive near 60 MB.
+
+`scripts/check-portable.sh` extracts the archive and drives the packaged daemon
+through the packaged CLI and web UI with an isolated data directory and the
+clipboard watcher off. The manual `Portable Linux package` workflow runs the
+build, tests, packaging and smoke test, and creates a GitHub release only when
+asked to.
+
+## Consequences
+
+Users download, verify and extract one archive; no root access is needed. The
+desktop prerequisites are unchanged (Avalonia libraries, `wl-clipboard` or
+`xclip`, `xdotool` for X11 paste-back). The smoke test covers the daemon, CLI
+and web UI; the picker's GUI, hotkey and paste-back still need a real desktop.
+macOS and Windows packages are not covered by this decision.

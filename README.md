@@ -38,6 +38,15 @@ docs/          user-facing feature documentation site
 engineering/   how-it-was-built engineering site (architecture, ADRs, perf)
 ```
 
+## Portable Linux package
+
+On Linux x64, the [portable package](docs/portable-install.md) runs without
+installing .NET: download `clipwell-VERSION-linux-x64.tar.gz` from a
+[release](https://github.com/aylith-labs/clipwell/releases), extract it, and run
+`./bin/clipwell-daemon`. Build one yourself with
+`python3 scripts/package-portable.py VERSION` (needs the .NET 10 SDK and Bun) and
+smoke-test it with `scripts/check-portable.sh`.
+
 ## Build
 
 Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download).

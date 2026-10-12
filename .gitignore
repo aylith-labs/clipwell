@@ -39,3 +39,6 @@ media/changelog/out/
 
 # Bench: keep baseline.json, ignore per-run output
 bench/last-run.json
+
+# Portable packages from scripts/package-portable.py
+artifacts/

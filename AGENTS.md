@@ -245,6 +245,17 @@ Second front-end (additive; the Avalonia `ui/` stays). Same daemon, full parity.
 - Don't add `webui/` to `clipwell.slnx`. `dist`, `node_modules`, `src-tauri/target`
   are gitignored.
 
+## Portable package
+`scripts/package-portable.py VERSION` builds `artifacts/clipwell-VERSION-linux-x64.tar.gz`:
+framework-dependent `linux-x64` apps (daemon, picker, CLI, MCP), the web UI in
+`daemon/wwwroot/app`, one bundled .NET + ASP.NET Core runtime and `bin/` launchers.
+`scripts/check-portable.sh ARCHIVE` smoke-tests it with an isolated data dir and
+the watcher off. The manual `portable.yml` workflow packages, tests and optionally
+creates the GitHub release. See ADR-0011 and `docs/portable-install.md`.
+
+The CLI (`cli/CliApplication.cs`) bounds `list`/`clear` to 15 s with no retry;
+`watch` is unbounded. Its HTTP boundary is tested in `CliApplicationTests`.
+
 ## Tests
 `tests/Clipwell.Tests` (xunit.v3, in `clipwell.slnx`) — `dotnet test clipwell.slnx`.
 Covers `HistoryStore` (dedup/merge, paging, counts, search, retention, settings,

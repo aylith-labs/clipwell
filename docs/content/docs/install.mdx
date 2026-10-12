@@ -3,9 +3,14 @@ title: Install
 description: Build and run Clipwell on Windows, macOS, and Linux.
 ---
 
-Clipwell needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The daemon
-runs everywhere; the picker UI is [Avalonia](https://avaloniaui.net) (also
-cross‑platform).
+On Linux x64 you can skip the build: the [portable package](https://github.com/aylith-labs/clipwell/blob/main/docs/portable-install.md)
+bundles everything, including the .NET runtime. Download the archive from a
+[release](https://github.com/aylith-labs/clipwell/releases), extract it and run
+`./bin/clipwell-daemon` and `./bin/clipwell-picker`.
+
+To build from source, Clipwell needs the [.NET 10 SDK](https://dotnet.microsoft.com/download).
+The daemon runs everywhere; the picker UI is [Avalonia](https://avaloniaui.net)
+(also cross‑platform).
 
 ## Build
 
