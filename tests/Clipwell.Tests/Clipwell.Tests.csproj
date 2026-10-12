@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\cli\Clipwell.Cli.csproj" />
     <ProjectReference Include="..\..\daemon\Clipwell.Daemon.csproj" />
     <ProjectReference Include="..\..\protocol\Clipwell.Protocol.csproj" />
   </ItemGroup>
