@@ -94,13 +94,30 @@ jobs:
             build-essential \
             patchelf
 
+      # A self-hosted runner's home persists, so a rustup something deleted stays deleted (rust-cache's
+      # cache-bin did exactly that). Restore it from the rustup-init a provisioned runner keeps in
+      # /opt/ci-local/dist; with none there, dtolnay/rust-toolchain installs rustup from the network.
+      - name: Restore rustup if missing
+        run: |
+          if ! command -v rustup > /dev/null; then
+            init="$(printf '%s\n' /opt/ci-local/dist/rustup-init-* | sort -V | tail -1)"
+            if [ -x "$init" ]; then
+              "$init" -y --no-modify-path --default-toolchain none --profile default > /dev/null
+              echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            fi
+          fi
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
 
+      # cache-bin off: with it on, the post step deletes every regular file that was in ~/.cargo/bin
+      # when the job started (getCargoBins/cleanBin) — rustup itself. Harmless on a throwaway hosted
+      # VM; on a self-hosted runner, whose home persists, it leaves every later job without rustup.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: webui/src-tauri
+          cache-bin: "false"
 
       - name: Lint (clippy)
         working-directory: webui/src-tauri
