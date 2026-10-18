@@ -198,7 +198,7 @@ or behavior change:
      app in the foreground during dev.
 3. Update the **engineering docs** (`engineering/content/docs/`) when architecture,
    the API surface, or a decision changes — and write a new **ADR** for any decision.
-4. Update this **CLAUDE.md**, the **README**, and the **OpenAPI** spec if endpoints
+4. Update this **AGENTS.md**, the **README**, and the **OpenAPI** spec if endpoints
    changed (`openapi/clipwell.v1.json`).
 A PR/commit that ships a feature without its docs + media is incomplete.
 
