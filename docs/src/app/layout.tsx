@@ -22,6 +22,14 @@ const inter = Inter({
 export default function Layout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
+      <head>
+        <script
+          defer
+          src="https://analytics.aylith.com/script.js"
+          data-website-id="0f4ccd9b-4465-4165-b5e9-af66d007276f"
+          data-domains="clipwell.aylith.com"
+        />
+      </head>
       <body className="flex flex-col min-h-screen">
         <Provider>{children}</Provider>
       </body>
